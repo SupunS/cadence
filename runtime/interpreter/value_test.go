@@ -407,130 +407,160 @@ func TestStringer(t *testing.T) {
 	t.Parallel()
 
 	type testCase struct {
+		name     string
 		value    Value
 		expected string
 	}
 
-	stringerTests := map[string]testCase{
-		"UInt": {
+	stringerTests := []testCase{
+		{
+			name:     "UInt",
 			value:    NewUIntValueFromUint64(10),
 			expected: "10",
 		},
-		"UInt8": {
+		{
+			name:     "UInt8",
 			value:    UInt8Value(8),
 			expected: "8",
 		},
-		"UInt16": {
+		{
+			name:     "UInt16",
 			value:    UInt16Value(16),
 			expected: "16",
 		},
-		"UInt32": {
+		{
+			name:     "UInt32",
 			value:    UInt32Value(32),
 			expected: "32",
 		},
-		"UInt64": {
+		{
+			name:     "UInt64",
 			value:    UInt64Value(64),
 			expected: "64",
 		},
-		"UInt128": {
+		{
+			name:     "UInt128",
 			value:    NewUInt128ValueFromUint64(128),
 			expected: "128",
 		},
-		"UInt256": {
+		{
+			name:     "UInt256",
 			value:    NewUInt256ValueFromUint64(256),
 			expected: "256",
 		},
-		"Int8": {
+		{
+			name:     "Int8",
 			value:    Int8Value(-8),
 			expected: "-8",
 		},
-		"Int16": {
+		{
+			name:     "Int16",
 			value:    Int16Value(-16),
 			expected: "-16",
 		},
-		"Int32": {
+		{
+			name:     "Int32",
 			value:    Int32Value(-32),
 			expected: "-32",
 		},
-		"Int64": {
+		{
+			name:     "Int64",
 			value:    Int64Value(-64),
 			expected: "-64",
 		},
-		"Int128": {
+		{
+			name:     "Int128",
 			value:    NewInt128ValueFromInt64(-128),
 			expected: "-128",
 		},
-		"Int256": {
+		{
+			name:     "Int256",
 			value:    NewInt256ValueFromInt64(-256),
 			expected: "-256",
 		},
-		"Word8": {
+		{
+			name:     "Word8",
 			value:    Word8Value(8),
 			expected: "8",
 		},
-		"Word16": {
+		{
+			name:     "Word16",
 			value:    Word16Value(16),
 			expected: "16",
 		},
-		"Word32": {
+		{
+			name:     "Word32",
 			value:    Word32Value(32),
 			expected: "32",
 		},
-		"Word64": {
+		{
+			name:     "Word64",
 			value:    Word64Value(64),
 			expected: "64",
 		},
-		"UFix64": {
+		{
+			name:     "UFix64",
 			value:    NewUFix64ValueWithInteger(64),
 			expected: "64.00000000",
 		},
-		"Fix64": {
+		{
+			name:     "Fix64",
 			value:    NewFix64ValueWithInteger(-32),
 			expected: "-32.00000000",
 		},
-		"Void": {
+		{
+			name:     "Void",
 			value:    VoidValue{},
 			expected: "()",
 		},
-		"true": {
+		{
+			name:     "true",
 			value:    BoolValue(true),
 			expected: "true",
 		},
-		"false": {
+		{
+			name:     "false",
 			value:    BoolValue(false),
 			expected: "false",
 		},
-		"some": {
+		{
+			name:     "some",
 			value:    NewSomeValueOwningNonCopying(BoolValue(true)),
 			expected: "true",
 		},
-		"nil": {
+		{
+			name:     "nil",
 			value:    NilValue{},
 			expected: "nil",
 		},
-		"String": {
+		{
+			name:     "String",
 			value:    NewStringValue("Flow ridah!"),
 			expected: "\"Flow ridah!\"",
 		},
-		"Array": {
+		{
+			name: "Array",
 			value: NewArrayValueUnownedNonCopying(
 				NewIntValueFromInt64(10),
 				NewStringValue("TEST"),
 			),
 			expected: "[10, \"TEST\"]",
 		},
-		"Dictionary": {
+		{
+			name: "Dictionary",
 			value: NewDictionaryValueUnownedNonCopying(
 				NewStringValue("key"),
 				NewStringValue("value"),
 			),
 			expected: "{\"key\": \"value\"}",
 		},
-		"Address": {
+		{
+			name:     "Address",
 			value:    NewAddressValue(common.Address{0, 0, 0, 0, 0, 0, 0, 1}),
 			expected: "0x1",
 		},
-		"composite": {
+		{
+			name: "composite",
 			value: NewCompositeValue(
 				ast.StringLocation("test"),
 				"S.test.Foo",
@@ -542,7 +572,8 @@ func TestStringer(t *testing.T) {
 			),
 			expected: "S.test.Foo(y: \"bar\")",
 		},
-		"Link": {
+		{
+			name: "Link",
 			value: LinkValue{
 				TargetPath: PathValue{
 					Domain:     common.PathDomainStorage,
@@ -552,18 +583,21 @@ func TestStringer(t *testing.T) {
 			},
 			expected: "Link<Int>(/storage/foo)",
 		},
-		"Path": {
+		{
+			name: "Path",
 			value: PathValue{
 				Domain:     common.PathDomainStorage,
 				Identifier: "foo",
 			},
 			expected: "/storage/foo",
 		},
-		"Type": {
+		{
+			name:     "Type",
 			value:    TypeValue{Type: PrimitiveStaticTypeInt},
 			expected: "Type<Int>()",
 		},
-		"Capability": {
+		{
+			name: "Capability",
 			value: CapabilityValue{
 				Path: PathValue{
 					Domain:     common.PathDomainStorage,
@@ -576,9 +610,9 @@ func TestStringer(t *testing.T) {
 		},
 	}
 
-	test := func(name string, testCase testCase) {
+	test := func(testCase testCase) {
 
-		t.Run(name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 
 			t.Parallel()
 
@@ -589,8 +623,8 @@ func TestStringer(t *testing.T) {
 		})
 	}
 
-	for name, testCase := range stringerTests {
-		test(name, testCase)
+	for _, testCase := range stringerTests {
+		test(testCase)
 	}
 }
 
