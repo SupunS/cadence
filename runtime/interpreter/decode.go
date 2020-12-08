@@ -319,20 +319,25 @@ func (d *Decoder) decodeDictionary(v interface{}, path []string) (*DictionaryVal
 	} else {
 		entries = make(map[string]Value, entryCount)
 
-		for key, value := range encodedEntries {
+		for _, keyValue := range keys.Values {
+			key := dictionaryKey(keyValue)
 
-			keyString, ok := key.(string)
+			value, ok := encodedEntries[key]
 			if !ok {
-				return nil, fmt.Errorf("invalid dictionary key encoding")
+				return nil, fmt.Errorf(
+					"missing dictionary entry for key (@ %s): %s",
+					strings.Join(path, "."),
+					key,
+				)
 			}
 
-			valuePath := append(path[:], dictionaryValuePathPrefix, keyString)
+			valuePath := append(path[:], dictionaryValuePathPrefix, key)
 			decodedValue, err := d.decodeValue(value, valuePath)
 			if err != nil {
 				return nil, fmt.Errorf("invalid dictionary value encoding: %w", err)
 			}
 
-			entries[keyString] = decodedValue
+			entries[key] = decodedValue
 		}
 	}
 
@@ -483,7 +488,7 @@ func (d *Decoder) decodeComposite(v interface{}, path []string) (*CompositeValue
 
 	fields := make(map[string]Value, len(encodedFields))
 
-	for name, value := range encodedFields {
+	for name, value := range encodedFields { //nolint:maprangecheck
 		nameString, ok := name.(string)
 		if !ok {
 			return nil, fmt.Errorf("invalid dictionary field name encoding: %T", name)
