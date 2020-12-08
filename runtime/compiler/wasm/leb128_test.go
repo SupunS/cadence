@@ -35,24 +35,47 @@ func TestBuf_writeULEB128(t *testing.T) {
 
 		// DWARF Debugging Information Format, Version 3, page 140
 
-		for v, expected := range map[uint32][]byte{
-			2:     {2},
-			127:   {127},
-			128:   {0 + 0x80, 1},
-			129:   {1 + 0x80, 1},
-			130:   {2 + 0x80, 1},
-			12857: {57 + 0x80, 100},
+		type testCase struct {
+			value   uint32
+			encoded []byte
+		}
+
+		for _, tc := range []testCase{
+			{
+				value:   2,
+				encoded: []byte{2},
+			},
+			{
+				value:   127,
+				encoded: []byte{127},
+			},
+			{
+				value:   128,
+				encoded: []byte{0 + 0x80, 1},
+			},
+			{
+				value:   129,
+				encoded: []byte{1 + 0x80, 1},
+			},
+			{
+				value:   130,
+				encoded: []byte{2 + 0x80, 1},
+			},
+			{
+				value:   12857,
+				encoded: []byte{57 + 0x80, 100},
+			},
 		} {
 			var b buf
-			err := b.writeULEB128(v)
+			err := b.writeULEB128(tc.value)
 			require.NoError(t, err)
-			require.Equal(t, expected, b.data)
+			require.Equal(t, tc.encoded, b.data)
 
 			b.offset = 0
 
 			actual, err := b.readULEB128()
 			require.NoError(t, err)
-			require.Equal(t, v, actual)
+			require.Equal(t, tc.value, actual)
 		}
 	})
 
@@ -96,26 +119,55 @@ func TestBuf_writeSLEB128(t *testing.T) {
 
 		// DWARF Debugging Information Format, Version 3, page 141
 
-		for v, expected := range map[int32][]byte{
-			2:    {2},
-			-2:   {0x7e},
-			127:  {127 + 0x80, 0},
-			-127: {1 + 0x80, 0x7f},
-			128:  {0 + 0x80, 1},
-			-128: {0 + 0x80, 0x7f},
-			129:  {1 + 0x80, 1},
-			-129: {0x7f + 0x80, 0x7e},
+		type testCase struct {
+			value   int32
+			encoded []byte
+		}
+
+		for _, tc := range []testCase{
+			{
+				value:   2,
+				encoded: []byte{2},
+			},
+			{
+				value:   -2,
+				encoded: []byte{0x7e},
+			},
+			{
+				value:   127,
+				encoded: []byte{127 + 0x80, 0},
+			},
+			{
+				value:   -127,
+				encoded: []byte{1 + 0x80, 0x7f},
+			},
+			{
+				value:   128,
+				encoded: []byte{0 + 0x80, 1},
+			},
+			{
+				value:   -128,
+				encoded: []byte{0 + 0x80, 0x7f},
+			},
+			{
+				value:   129,
+				encoded: []byte{1 + 0x80, 1},
+			},
+			{
+				value:   -129,
+				encoded: []byte{0x7f + 0x80, 0x7e},
+			},
 		} {
 			var b buf
-			err := b.writeSLEB128(v)
+			err := b.writeSLEB128(tc.value)
 			require.NoError(t, err)
-			require.Equal(t, expected, b.data)
+			require.Equal(t, tc.encoded, b.data)
 
 			b.offset = 0
 
 			actual, err := b.readSLEB128()
 			require.NoError(t, err)
-			require.Equal(t, v, actual)
+			require.Equal(t, tc.value, actual)
 		}
 	})
 
