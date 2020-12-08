@@ -209,7 +209,10 @@ func (checker *Checker) declareCompositeNestedTypes(
 	compositeType := checker.Elaboration.CompositeDeclarationTypes[declaration]
 	nestedDeclarations := checker.Elaboration.CompositeNestedDeclarations[declaration]
 
-	for name, nestedType := range compositeType.nestedTypes {
+	for p := compositeType.nestedTypes.Oldest(); p != nil; p = p.Next() {
+		name := p.Key
+		nestedType := p.Value
+
 		nestedDeclaration := nestedDeclarations[name]
 
 		identifier := nestedDeclaration.DeclarationIdentifier()
@@ -398,7 +401,7 @@ func (checker *Checker) declareCompositeType(declaration *ast.CompositeDeclarati
 		Location:    checker.Location,
 		Kind:        declaration.CompositeKind,
 		Identifier:  identifier.Identifier,
-		nestedTypes: map[string]Type{},
+		nestedTypes: NewStringTypeOrderedMap(),
 	}
 
 	variable, err := checker.typeActivations.DeclareType(typeDeclaration{
@@ -448,12 +451,12 @@ func (checker *Checker) declareCompositeType(declaration *ast.CompositeDeclarati
 	checker.Elaboration.CompositeNestedDeclarations[declaration] = nestedDeclarations
 
 	for _, nestedInterfaceType := range nestedInterfaceTypes {
-		compositeType.nestedTypes[nestedInterfaceType.Identifier] = nestedInterfaceType
+		compositeType.nestedTypes.Set(nestedInterfaceType.Identifier, nestedInterfaceType)
 		nestedInterfaceType.ContainerType = compositeType
 	}
 
 	for _, nestedCompositeType := range nestedCompositeTypes {
-		compositeType.nestedTypes[nestedCompositeType.Identifier] = nestedCompositeType
+		compositeType.nestedTypes.Set(nestedCompositeType.Identifier, nestedCompositeType)
 		nestedCompositeType.ContainerType = compositeType
 	}
 
@@ -548,7 +551,10 @@ func (checker *Checker) declareCompositeMembersAndValue(
 		// in which case it is a type requirement,
 		// and this nested composite type implicitly conforms to it.
 
-		for nestedTypeIdentifier, nestedType := range compositeType.NestedTypes() {
+		for p := compositeType.NestedTypes().Oldest(); p != nil; p = p.Next() {
+			nestedTypeIdentifier := p.Key
+			nestedType := p.Value
+
 			nestedCompositeType, ok := nestedType.(*CompositeType)
 			if !ok {
 				continue
@@ -556,9 +562,18 @@ func (checker *Checker) declareCompositeMembersAndValue(
 
 			for _, compositeTypeConformance := range compositeType.ExplicitInterfaceConformances {
 				conformanceNestedTypes := compositeTypeConformance.NestedTypes()
-				if typeRequirement, ok := conformanceNestedTypes[nestedTypeIdentifier].(*CompositeType); ok {
-					nestedCompositeType.AddImplicitTypeRequirementConformance(typeRequirement)
+
+				nestedType, ok := conformanceNestedTypes.Get(nestedTypeIdentifier)
+				if !ok {
+					continue
 				}
+
+				typeRequirement, ok := nestedType.(*CompositeType)
+				if !ok {
+					continue
+				}
+
+				nestedCompositeType.AddImplicitTypeRequirementConformance(typeRequirement)
 			}
 		}
 
@@ -981,7 +996,10 @@ func (checker *Checker) checkCompositeConformance(
 
 	// Determine missing nested composite type definitions
 
-	for name, typeRequirement := range interfaceType.nestedTypes {
+	for p := interfaceType.nestedTypes.Oldest(); p != nil; p = p.Next() {
+
+		name := p.Key
+		typeRequirement := p.Value
 
 		// Only nested composite declarations are type requirements of the interface
 
@@ -990,7 +1008,7 @@ func (checker *Checker) checkCompositeConformance(
 			continue
 		}
 
-		nestedCompositeType, ok := compositeType.nestedTypes[name]
+		nestedCompositeType, ok := compositeType.nestedTypes.Get(name)
 		if !ok {
 			missingNestedCompositeTypes = append(missingNestedCompositeTypes, requiredCompositeType)
 			continue

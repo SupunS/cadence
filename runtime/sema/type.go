@@ -166,13 +166,15 @@ type ContainedType interface {
 //
 type ContainerType interface {
 	Type
-	NestedTypes() map[string]Type
+	NestedTypes() *StringTypeOrderedMap
 }
 
 func VisitContainerAndNested(t ContainerType, visit func(ty Type)) {
 	visit(t)
 
-	for _, nestedType := range t.NestedTypes() {
+	for p := t.NestedTypes().Oldest(); p != nil; p = p.Next() {
+		nestedType := p.Value
+
 		if nestedContainerType, ok := nestedType.(ContainerType); ok {
 			VisitContainerAndNested(nestedContainerType, visit)
 		} else {
@@ -4730,7 +4732,7 @@ type CompositeType struct {
 	Fields                              []string
 	// TODO: add support for overloaded initializers
 	ConstructorParameters []*Parameter
-	nestedTypes           map[string]Type
+	nestedTypes           *StringTypeOrderedMap
 	ContainerType         Type
 	EnumRawType           Type
 }
@@ -4915,7 +4917,11 @@ func (t *CompositeType) TypeRequirements() []*CompositeType {
 
 	if containerComposite, ok := t.ContainerType.(*CompositeType); ok {
 		for _, conformance := range containerComposite.ExplicitInterfaceConformances {
-			ty := conformance.nestedTypes[t.Identifier]
+			ty, ok := conformance.nestedTypes.Get(t.Identifier)
+			if !ok {
+				continue
+			}
+
 			typeRequirement, ok := ty.(*CompositeType)
 			if !ok {
 				continue
@@ -4937,7 +4943,7 @@ func (t *CompositeType) Resolve(_ map[*TypeParameter]Type) Type {
 	return t
 }
 
-func (t *CompositeType) NestedTypes() map[string]Type {
+func (t *CompositeType) NestedTypes() *StringTypeOrderedMap {
 	return t.nestedTypes
 }
 
@@ -5787,7 +5793,7 @@ type InterfaceType struct {
 	// TODO: add support for overloaded initializers
 	InitializerParameters []*Parameter
 	ContainerType         Type
-	nestedTypes           map[string]Type
+	nestedTypes           *StringTypeOrderedMap
 }
 
 func (*InterfaceType) IsType() {}
@@ -5923,7 +5929,7 @@ func (t *InterfaceType) Resolve(_ map[*TypeParameter]Type) Type {
 	return t
 }
 
-func (t *InterfaceType) NestedTypes() map[string]Type {
+func (t *InterfaceType) NestedTypes() *StringTypeOrderedMap {
 	return t.nestedTypes
 }
 
