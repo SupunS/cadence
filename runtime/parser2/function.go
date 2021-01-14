@@ -30,17 +30,8 @@ func parseParameterList(p *parser) (parameterList *ast.ParameterList) {
 
 	p.skipSpaceAndComments(true)
 
-	if !p.current.Is(lexer.TokenParenOpen) {
-		panic(fmt.Errorf(
-			"expected %s as start of parameter list, got %s",
-			lexer.TokenParenOpen,
-			p.current.Type,
-		))
-	}
-
 	startPos := p.current.StartPos
-	// Skip the opening paren
-	p.next()
+	p.mustOne(lexer.TokenParenOpen)
 
 	var endPos ast.Position
 
@@ -57,9 +48,8 @@ func parseParameterList(p *parser) (parameterList *ast.ParameterList) {
 
 		case lexer.TokenComma:
 			if expectParameter {
-				panic(fmt.Errorf(
-					"expected parameter or end of parameter list, got %s",
-					p.current.Type,
+				p.report(fmt.Errorf(
+					"invalid token %s", p.current.Type,
 				))
 			}
 			// Skip the comma
@@ -73,23 +63,24 @@ func parseParameterList(p *parser) (parameterList *ast.ParameterList) {
 			atEnd = true
 
 		case lexer.TokenEOF:
-			panic(fmt.Errorf(
+			p.report(fmt.Errorf(
 				"missing %s at end of parameter list",
 				lexer.TokenParenClose,
 			))
 
 		default:
 			if expectParameter {
-				panic(fmt.Errorf(
+				p.report(fmt.Errorf(
 					"expected parameter or end of parameter list, got %s",
 					p.current.Type,
 				))
 			} else {
-				panic(fmt.Errorf(
+				p.report(fmt.Errorf(
 					"expected comma or end of parameter list, got %s",
 					p.current.Type,
 				))
 			}
+			p.next()
 		}
 	}
 
@@ -108,6 +99,7 @@ func parseParameter(p *parser) *ast.Parameter {
 	startPos := p.current.StartPos
 	parameterPos := startPos
 
+	identifierToken := p.mustOne(lexer.TokenIdentifier)
 	if !p.current.Is(lexer.TokenIdentifier) {
 		panic(fmt.Errorf(
 			"expected argument label or parameter name, got %s",
@@ -115,9 +107,7 @@ func parseParameter(p *parser) *ast.Parameter {
 		))
 	}
 	argumentLabel := ""
-	parameterName := p.current.Value.(string)
-	// Skip the identifier
-	p.next()
+	parameterName := identifierToken.Value.(string)
 
 	// If another identifier is provided, then the previous identifier
 	// is the argument label, and this identifier is the parameter name
@@ -132,16 +122,7 @@ func parseParameter(p *parser) *ast.Parameter {
 		p.skipSpaceAndComments(true)
 	}
 
-	if !p.current.Is(lexer.TokenColon) {
-		panic(fmt.Errorf(
-			"expected %s after argument label/parameter name, got %s",
-			lexer.TokenColon,
-			p.current.Type,
-		))
-	}
-
-	// Skip the colon
-	p.next()
+	p.mustOne(lexer.TokenColon)
 	p.skipSpaceAndComments(true)
 
 	typeAnnotation := parseTypeAnnotation(p)
@@ -179,17 +160,9 @@ func parseFunctionDeclaration(
 	p.next()
 
 	p.skipSpaceAndComments(true)
-	if !p.current.Is(lexer.TokenIdentifier) {
-		panic(fmt.Errorf(
-			"expected identifier after start of function declaration, got %s",
-			p.current.Type,
-		))
-	}
 
-	identifier := tokenToIdentifier(p.current)
-
-	// Skip the identifier
-	p.next()
+	token := p.mustOne(lexer.TokenIdentifier)
+	identifier := tokenToIdentifier(token)
 
 	parameterList, returnTypeAnnotation, functionBlock :=
 		parseFunctionParameterListAndRest(p, functionBlockIsOptional)

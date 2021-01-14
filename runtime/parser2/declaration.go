@@ -87,13 +87,14 @@ func parseDeclaration(p *parser, docString string) ast.Declaration {
 
 			case keywordTransaction:
 				if access != ast.AccessNotSpecified {
-					panic(fmt.Errorf("invalid access modifier for transaction"))
+					p.removeAdditionalToken("invalid access modifier for transaction")
 				}
 				return parseTransactionDeclaration(p)
 
 			case keywordPriv, keywordPub, keywordAccess:
 				if access != ast.AccessNotSpecified {
-					panic(fmt.Errorf("unexpected access modifier"))
+					p.removeAdditionalToken("unexpected access modifier")
+					continue
 				}
 				pos := p.current.StartPos
 				accessPos = &pos
@@ -134,14 +135,14 @@ func parseAccess(p *parser) ast.Access {
 		p.skipSpaceAndComments(true)
 
 		if !p.current.Is(lexer.TokenIdentifier) {
-			panic(fmt.Errorf(
+			p.report(fmt.Errorf(
 				"expected keyword %q, got %s",
 				keywordSet,
 				p.current.Type,
 			))
 		}
 		if p.current.Value != keywordSet {
-			panic(fmt.Errorf(
+			p.report(fmt.Errorf(
 				"expected keyword %q, got %q",
 				keywordSet,
 				p.current.Value,
@@ -252,17 +253,10 @@ func parseVariableDeclaration(
 	p.next()
 
 	p.skipSpaceAndComments(true)
-	if !p.current.Is(lexer.TokenIdentifier) {
-		panic(fmt.Errorf(
-			"expected identifier after start of variable declaration, got %s",
-			p.current.Type,
-		))
-	}
 
-	identifier := tokenToIdentifier(p.current)
+	identifierToken := p.mustOne(lexer.TokenIdentifier)
+	identifier := tokenToIdentifier(identifierToken)
 
-	// Skip the identifier
-	p.next()
 	p.skipSpaceAndComments(true)
 
 	var typeAnnotation *ast.TypeAnnotation
@@ -278,7 +272,7 @@ func parseVariableDeclaration(
 	p.skipSpaceAndComments(true)
 	transfer := parseTransfer(p)
 	if transfer == nil {
-		panic(fmt.Errorf("expected transfer"))
+		p.report(fmt.Errorf("expected transfer"))
 	}
 
 	value := parseExpression(p, lowestBindingPower)

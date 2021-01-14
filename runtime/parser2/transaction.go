@@ -82,6 +82,10 @@ func parseTransactionDeclaration(p *parser) *ast.TransactionDeclaration {
 		case keywordExecute:
 			execute = parseTransactionExecute(p)
 
+		case keywordAccess:
+		case keywordPub:
+		case keywordPriv:
+			// skip
 		default:
 			panic(fmt.Errorf(
 				"unexpected identifier, expected keyword %q or %q, got %q",
@@ -122,14 +126,14 @@ func parseTransactionDeclaration(p *parser) *ast.TransactionDeclaration {
 			switch p.current.Value {
 			case keywordExecute:
 				if execute != nil {
-					panic(fmt.Errorf("unexpected second %q block", keywordExecute))
+					// Additional execute block. Log an error and continue
+					p.report(fmt.Errorf("unexpected second %q block", keywordExecute))
 				}
-
 				execute = parseTransactionExecute(p)
-
 			case keywordPost:
 				if sawPost {
-					panic(fmt.Errorf("unexpected second post-conditions"))
+					// An additional post block. Log an error and continue
+					p.report(fmt.Errorf("unexpected second %q block", keywordExecute))
 				}
 				// Skip the `post` keyword
 				p.next()
@@ -137,6 +141,16 @@ func parseTransactionDeclaration(p *parser) *ast.TransactionDeclaration {
 				postConditions = &conditions
 				sawPost = true
 
+			case keywordAccess:
+				fallthrough
+			case keywordPub:
+				fallthrough
+			case keywordPriv:
+				// Can assume this is the start of the next construct
+				p.report(fmt.Errorf(
+					"missing %s", lexer.TokenBraceClose,
+				))
+				atEnd = true
 			default:
 				panic(fmt.Errorf(
 					"unexpected identifier, expected keyword %q or %q, got %q",
@@ -151,7 +165,11 @@ func parseTransactionDeclaration(p *parser) *ast.TransactionDeclaration {
 			// Skip the closing brace
 			p.next()
 			atEnd = true
-
+		case lexer.TokenEOF:
+			p.report(fmt.Errorf(
+				"missing %s", lexer.TokenBraceClose,
+			))
+			atEnd = true
 		default:
 			panic(fmt.Errorf("unexpected token: %s", p.current.Type))
 		}

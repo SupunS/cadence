@@ -4788,3 +4788,21 @@ func TestParsePreconditionWithUnaryNegation(t *testing.T) {
 		result.Declarations,
 	)
 }
+
+func TestSyntaxError(t *testing.T) {
+
+	t.Parallel()
+
+	_, errs := ParseProgram(`
+        pub fun foo (,) {
+        }
+
+        pub fun foo ) {
+        }
+
+        pub fun () {
+        }
+	`)
+
+	fmt.Println(errs)
+}

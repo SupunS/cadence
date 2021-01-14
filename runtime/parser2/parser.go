@@ -227,7 +227,7 @@ func (p *parser) next() {
 func (p *parser) mustOne(tokenType lexer.TokenType) lexer.Token {
 	t := p.current
 	if !t.Is(tokenType) {
-		panic(fmt.Errorf("expected token %s", tokenType))
+		return p.recover(tokenType)
 	}
 	p.next()
 	return t
@@ -443,4 +443,77 @@ func ParseProgramFromFile(filename string) (program *ast.Program, code string, e
 		return nil, code, err
 	}
 	return program, code, nil
+}
+
+func (p *parser) recover(expectedTokenType lexer.TokenType) lexer.Token {
+	// This is just a safety check. This would ideally be false
+	if p.current.Type == expectedTokenType {
+		return p.current
+	}
+
+	// Start buffering tokens as a look-ahead is started here
+	p.startBuffering()
+
+	// `lookAheadLimit` is a tunable property to limit the number of tokens to
+	// look-ahead while recovering. Currently it is set to a lower value of `3`
+	// to avoid an exhaustive search.
+	const lookAheadLimit = 3
+
+	lookAheadCount := 0
+	found := false
+	for lookAheadCount < lookAheadLimit {
+		if p.current.Type == expectedTokenType {
+			found = true
+			break
+		}
+		lookAheadCount++
+		p.next()
+		p.skipSpaceAndComments(true)
+	}
+
+	// Looking ahead is done. So replay the buffered tokens
+	p.replayBuffered()
+
+	// If a matching token is found, skip the tokens up to that matching token.
+	// Log an error for the skipped token.
+	if found {
+		skippedTokens := 0
+		for skippedTokens < lookAheadCount {
+			p.report(fmt.Errorf(
+				"invalid token %s", p.current.Type,
+			))
+			p.next()
+			p.skipSpaceAndComments(true)
+			skippedTokens++
+		}
+
+		token := p.current
+		p.next()
+		p.skipSpaceAndComments(true)
+		return token
+	}
+
+	return p.createMissingToken(expectedTokenType)
+}
+
+func (p *parser) createMissingToken(expectedTokenType lexer.TokenType) lexer.Token {
+	// Log a missing-token error
+	p.report(fmt.Errorf(
+		"missing %s", expectedTokenType,
+	))
+
+	return lexer.Token{
+		Type:  expectedTokenType,
+		Value: "",
+		Range: ast.Range{
+			// Since this is a dummy token, both start and end positions are same
+			StartPos: p.current.StartPos,
+			EndPos:   p.current.StartPos,
+		},
+	}
+}
+
+func (p *parser) removeAdditionalToken(errMessage string) {
+	p.report(fmt.Errorf(errMessage))
+	p.next()
 }
