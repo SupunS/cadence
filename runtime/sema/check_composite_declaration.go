@@ -88,7 +88,7 @@ func (checker *Checker) visitCompositeDeclaration(declaration *ast.CompositeDecl
 			fieldName := field.Identifier.Identifier
 			member, ok := compositeType.Members.Get(fieldName)
 			if !ok {
-				continue
+				panic(errors.NewUnreachableError())
 			}
 
 			fieldMembers[member] = field
