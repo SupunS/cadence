@@ -18,178 +18,112 @@
 
 package sema
 
-import (
-	"github.com/onflow/cadence/runtime/ast"
-	"github.com/onflow/cadence/runtime/common"
-)
-
 // AuthAccountType represents the authorized access to an account.
 // Access to an AuthAccount means having full access to its storage, public keys, and code.
 // Only signed transactions can get the AuthAccount for an account.
 //
-var AuthAccountType = &NominalType{
-	Name:                 "AuthAccount",
-	QualifiedName:        "AuthAccount",
-	TypeID:               "AuthAccount",
-	IsInvalid:            false,
-	IsResource:           false,
-	Storable:             false,
-	Equatable:            false,
-	ExternallyReturnable: false,
-	Members: func(t *NominalType) map[string]MemberResolver {
-		return map[string]MemberResolver{
-			"address": {
-				Kind: common.DeclarationKindField,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicConstantFieldMember(
-						t,
-						identifier,
-						&AddressType{},
-						accountTypeAddressFieldDocString,
-					)
-				},
-			},
-			"storageUsed": {
-				Kind: common.DeclarationKindField,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicConstantFieldMember(
-						t,
-						identifier,
-						&UInt64Type{},
-						accountTypeStorageUsedFieldDocString,
-					)
-				},
-			},
-			"storageCapacity": {
-				Kind: common.DeclarationKindField,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicConstantFieldMember(
-						t,
-						identifier,
-						&UInt64Type{},
-						accountTypeStorageCapacityFieldDocString,
-					)
-				},
-			},
-			"save": {
-				Kind: common.DeclarationKindFunction,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicFunctionMember(
-						t,
-						identifier,
-						authAccountTypeSaveFunctionType,
-						authAccountTypeSaveFunctionDocString,
-					)
-				},
-			},
-			"load": {
-				Kind: common.DeclarationKindFunction,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicFunctionMember(
-						t,
-						identifier,
-						authAccountTypeLoadFunctionType,
-						authAccountTypeLoadFunctionDocString,
-					)
-				},
-			},
-			"copy": {
-				Kind: common.DeclarationKindFunction,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicFunctionMember(
-						t,
-						identifier,
-						authAccountTypeCopyFunctionType,
-						authAccountTypeCopyFunctionDocString,
-					)
-				},
-			},
-			"borrow": {
-				Kind: common.DeclarationKindFunction,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicFunctionMember(
-						t,
-						identifier,
-						authAccountTypeBorrowFunctionType,
-						authAccountTypeBorrowFunctionDocString,
-					)
-				},
-			},
-			"link": {
-				Kind: common.DeclarationKindFunction,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicFunctionMember(
-						t,
-						identifier,
-						authAccountTypeLinkFunctionType,
-						authAccountTypeLinkFunctionDocString,
-					)
-				},
-			},
-			"unlink": {
-				Kind: common.DeclarationKindFunction,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicFunctionMember(
-						t,
-						identifier,
-						authAccountTypeUnlinkFunctionType,
-						authAccountTypeUnlinkFunctionDocString,
-					)
-				},
-			},
-			"getCapability": {
-				Kind: common.DeclarationKindFunction,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicFunctionMember(
-						t,
-						identifier,
-						authAccountTypeGetCapabilityFunctionType,
-						authAccountTypeGetCapabilityFunctionDocString,
-					)
-				},
-			},
-			"getLinkTarget": {
-				Kind: common.DeclarationKindFunction,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicFunctionMember(
-						t,
-						identifier,
-						accountTypeGetLinkTargetFunctionType,
-						accountTypeGetLinkTargetFunctionDocString,
-					)
-				},
-			},
-			"contracts": {
-				Kind: common.DeclarationKindField,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicConstantFieldMember(
-						t,
-						identifier,
-						AuthAccountContractsType,
-						accountTypeContractsFieldDocString,
-					)
-				},
-			},
-			"keys": {
-				Kind: common.DeclarationKindField,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicConstantFieldMember(
-						t,
-						identifier,
-						AuthAccountKeysType,
-						accountTypeKeysFieldDocString,
-					)
-				},
-			},
-		}
-	},
-	NestedTypes: func() *StringTypeOrderedMap {
-		nestedTypes := NewStringTypeOrderedMap()
-		nestedTypes.Set("Contracts", AuthAccountContractsType)
-		nestedTypes.Set(AccountKeysTypeName, AuthAccountKeysType)
-		return nestedTypes
-	}(),
-}
+var AuthAccountType = func() *BuiltinCompositeType {
+
+	authAccountType := &BuiltinCompositeType{
+		Identifier:           "AuthAccount",
+		IsInvalid:            false,
+		IsResource:           false,
+		Storable:             false,
+		Equatable:            false,
+		ExternallyReturnable: false,
+
+		nestedTypes: func() *StringTypeOrderedMap {
+			nestedTypes := NewStringTypeOrderedMap()
+			nestedTypes.Set(AuthAccountContractsTypeName, AuthAccountContractsType)
+			nestedTypes.Set(AccountKeysTypeName, AuthAccountKeysType)
+			return nestedTypes
+		}(),
+	}
+
+	var members = []*Member{
+		NewPublicConstantFieldMember(
+			authAccountType,
+			"address",
+			&AddressType{},
+			accountTypeAddressFieldDocString,
+		),
+		NewPublicConstantFieldMember(
+			authAccountType,
+			"storageUsed",
+			&UInt64Type{},
+			accountTypeStorageUsedFieldDocString,
+		),
+		NewPublicConstantFieldMember(
+			authAccountType,
+			"storageCapacity",
+			&UInt64Type{},
+			accountTypeStorageCapacityFieldDocString,
+		),
+		NewPublicFunctionMember(
+			authAccountType,
+			"save",
+			authAccountTypeSaveFunctionType,
+			authAccountTypeSaveFunctionDocString,
+		),
+		NewPublicFunctionMember(
+			authAccountType,
+			"load",
+			authAccountTypeLoadFunctionType,
+			authAccountTypeLoadFunctionDocString,
+		),
+		NewPublicFunctionMember(
+			authAccountType,
+			"copy",
+			authAccountTypeCopyFunctionType,
+			authAccountTypeCopyFunctionDocString,
+		),
+		NewPublicFunctionMember(
+			authAccountType,
+			"borrow",
+			authAccountTypeBorrowFunctionType,
+			authAccountTypeBorrowFunctionDocString,
+		),
+		NewPublicFunctionMember(
+			authAccountType,
+			"link",
+			authAccountTypeLinkFunctionType,
+			authAccountTypeLinkFunctionDocString,
+		),
+		NewPublicFunctionMember(
+			authAccountType,
+			"unlink",
+			authAccountTypeUnlinkFunctionType,
+			authAccountTypeUnlinkFunctionDocString,
+		),
+		NewPublicFunctionMember(
+			authAccountType,
+			"getCapability",
+			authAccountTypeGetCapabilityFunctionType,
+			authAccountTypeGetCapabilityFunctionDocString,
+		),
+		NewPublicFunctionMember(
+			authAccountType,
+			"getLinkTarget",
+			accountTypeGetLinkTargetFunctionType,
+			accountTypeGetLinkTargetFunctionDocString,
+		),
+		NewPublicConstantFieldMember(
+			authAccountType,
+			"contracts",
+			AuthAccountContractsType,
+			accountTypeContractsFieldDocString,
+		),
+		NewPublicConstantFieldMember(
+			authAccountType,
+			"keys",
+			AuthAccountKeysType,
+			accountTypeKeysFieldDocString,
+		),
+	}
+
+	authAccountType.Members = GetMembersAsMap(members)
+	return authAccountType
+}()
 
 var authAccountTypeSaveFunctionType = func() *FunctionType {
 
@@ -588,6 +522,7 @@ func init() {
 }
 
 const AccountKeysTypeName = "Keys"
+const AuthAccountContractsTypeName = "Contracts"
 const AccountKeysAddFunctionName = "add"
 const AccountKeysGetFunctionName = "get"
 const AccountKeysRevokeFunctionName = "revoke"

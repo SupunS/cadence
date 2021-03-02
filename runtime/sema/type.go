@@ -6471,18 +6471,19 @@ func (t *CapabilityType) GetMembers() map[string]MemberResolver {
 }
 
 type BuiltinCompositeType struct {
-	Identifier           string
-	Members              *StringMemberOrderedMap
-	ContainerType        Type
-	EnumRawType          Type
-	IsInvalid            bool
-	IsResource           bool
-	Storable             bool
-	Equatable            bool
-	ExternallyReturnable bool
+	Identifier    string
+	ContainerType Type
+	Members       *StringMemberOrderedMap
+	nestedTypes   *StringTypeOrderedMap
+	EnumRawType   Type
+	IsInvalid     bool
+	IsResource    bool
+	Storable      bool
+	Equatable     bool
 
-	memberResolvers     map[string]MemberResolver
-	memberResolversOnce sync.Once
+	ExternallyReturnable bool
+	memberResolvers      map[string]MemberResolver
+	memberResolversOnce  sync.Once
 }
 
 func (*BuiltinCompositeType) IsType() {}
@@ -6571,8 +6572,12 @@ func (t *BuiltinCompositeType) GetContainerType() Type {
 	return t.ContainerType
 }
 
-func (t *BuiltinCompositeType) NestedTypes() *StringTypeOrderedMap {
-	return nil
+func (t *BuiltinCompositeType) GetNestedTypes() *StringTypeOrderedMap {
+	return t.nestedTypes
+}
+
+func (t *BuiltinCompositeType) isContainerType() bool {
+	return t.nestedTypes != nil && t.nestedTypes.Len() > 0
 }
 
 func GetMembersAsMap(members []*Member) *StringMemberOrderedMap {

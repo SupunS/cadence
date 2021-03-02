@@ -146,8 +146,6 @@ func ExportType(t sema.Type, results map[sema.TypeID]cadence.Type) cadence.Type 
 			return cadence.AnyStructType{}
 		case sema.AnyResourceType:
 			return cadence.AnyResourceType{}
-		case sema.AuthAccountType:
-			return cadence.AuthAccountType{}
 		case sema.PublicAccountType:
 			return cadence.PublicAccountType{}
 		case sema.BlockType:

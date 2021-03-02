@@ -300,7 +300,7 @@ func (r *interpreterRuntime) newAuthAccountValue(
 	runtimeStorage *runtimeStorage,
 	interpreterOptions []interpreter.Option,
 	checkerOptions []sema.Option,
-) interpreter.AuthAccountValue {
+) *interpreter.BuiltinCompositeValue {
 	return interpreter.NewAuthAccountValue(
 		addressValue,
 		storageUsedGetFunction(addressValue, context.Interface, runtimeStorage),
@@ -1108,24 +1108,34 @@ func (r *interpreterRuntime) newCreateAccountFunction(
 ) interpreter.HostFunction {
 	return func(invocation interpreter.Invocation) trampoline.Trampoline {
 
-		payer, ok := invocation.Arguments[0].(interpreter.AuthAccountValue)
-		if !ok {
+		payer, ok := invocation.Arguments[0].(*interpreter.BuiltinCompositeValue)
+		if !ok || payer.StaticType() != interpreter.PrimitiveStaticTypeAuthAccount {
 			panic(fmt.Sprintf(
 				"%[1]s requires the first argument (payer) to be an %[1]s",
 				sema.AuthAccountType,
 			))
 		}
 
+		addressField, ok := payer.Fields.Get("address")
+		if !ok {
+			panic("auth account address is not set")
+		}
+
+		addressValue, ok := addressField.(interpreter.AddressValue)
+		if !ok {
+			panic(fmt.Sprintf("auth account address needs to be of type `%s`", sema.AddressType{}))
+		}
+
 		var address Address
 		var err error
 		wrapPanic(func() {
-			address, err = context.Interface.CreateAccount(payer.AddressValue().ToAddress())
+			address, err = context.Interface.CreateAccount(addressValue.ToAddress())
 		})
 		if err != nil {
 			panic(err)
 		}
 
-		addressValue := interpreter.NewAddressValue(address)
+		addressValue = interpreter.NewAddressValue(address)
 
 		r.emitAccountEvent(
 			stdlib.AccountCreatedEventType,

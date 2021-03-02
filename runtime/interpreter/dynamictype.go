@@ -179,12 +179,6 @@ type CapabilityDynamicType struct {
 
 func (CapabilityDynamicType) IsDynamicType() {}
 
-// AuthAccountDynamicType
-
-type AuthAccountDynamicType struct{}
-
-func (AuthAccountDynamicType) IsDynamicType() {}
-
 // PublicAccountDynamicType
 
 type PublicAccountDynamicType struct{}
