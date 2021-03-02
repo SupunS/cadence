@@ -917,16 +917,6 @@ func (t CapabilityType) WithID(id string) CapabilityType {
 	return t
 }
 
-// PublicAccountType
-
-type PublicAccountType struct{}
-
-func (PublicAccountType) isType() {}
-
-func (PublicAccountType) ID() string {
-	return "PublicAccount"
-}
-
 type BuiltinStructType struct {
 	QualifiedIdentifier string
 	Fields              []Field

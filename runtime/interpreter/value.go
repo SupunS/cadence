@@ -5602,7 +5602,7 @@ func (v *CompositeValue) OwnerValue() OptionalValue {
 	address := AddressValue(*v.Owner)
 
 	return NewSomeValueOwningNonCopying(
-		PublicAccountValue{Address: address},
+		NewPublicAccountValue(address, nil, nil, nil),
 	)
 }
 
@@ -6665,7 +6665,7 @@ func (AddressValue) SetMember(_ *Interpreter, _ LocationRange, _ string, _ Value
 	panic(errors.NewUnreachableError())
 }
 
-// NewAuthAccountValue
+// NewAuthAccountValue constructs an auth account value.
 func NewAuthAccountValue(
 	address AddressValue,
 	storageUsedGet func(interpreter *Interpreter) UInt64Value,
@@ -6680,7 +6680,7 @@ func NewAuthAccountValue(
 
 	value := NewBuiltinCompositeValue(sema.AuthAccountType, fields)
 
-	value.memberResolver = func(inter *Interpreter, _ LocationRange, name string) Value {
+	value.dynamicMemberResolver = func(inter *Interpreter, _ LocationRange, name string) Value {
 		switch name {
 		case "storageUsed":
 			return storageUsedGet(inter)
@@ -6710,7 +6710,7 @@ func NewAuthAccountValue(
 			return inter.accountGetLinkTargetFunction(address)
 
 		case "getCapability":
-			return accountGetCapabilityFunction(address, true)
+			return accountGetCapabilityFunction(address)
 		}
 
 		return nil
@@ -6721,7 +6721,6 @@ func NewAuthAccountValue(
 
 func accountGetCapabilityFunction(
 	addressValue AddressValue,
-	authorized bool,
 ) HostFunctionValue {
 
 	return NewHostFunctionValue(
@@ -6756,102 +6755,38 @@ func accountGetCapabilityFunction(
 
 // PublicAccountValue
 
-type PublicAccountValue struct {
-	Address            AddressValue
-	storageUsedGet     func(interpreter *Interpreter) UInt64Value
-	storageCapacityGet func() UInt64Value
-	Identifier         string
-	keys               *BuiltinCompositeValue
-}
-
+// NewPublicAccountValue constructs a public account value.
 func NewPublicAccountValue(
 	address AddressValue,
 	storageUsedGet func(interpreter *Interpreter) UInt64Value,
 	storageCapacityGet func() UInt64Value,
 	keys *BuiltinCompositeValue,
-) PublicAccountValue {
-	return PublicAccountValue{
-		Address:            address,
-		storageUsedGet:     storageUsedGet,
-		storageCapacityGet: storageCapacityGet,
-		keys:               keys,
-	}
-}
+) *BuiltinCompositeValue {
+	fields := NewStringValueOrderedMap()
+	fields.Set("address", address)
+	fields.Set("keys", keys)
 
-func (PublicAccountValue) IsValue() {}
+	value := NewBuiltinCompositeValue(sema.PublicAccountType, fields)
 
-func (v PublicAccountValue) Accept(interpreter *Interpreter, visitor Visitor) {
-	visitor.VisitPublicAccountValue(interpreter, v)
-}
+	value.dynamicMemberResolver = func(inter *Interpreter, _ LocationRange, name string) Value {
+		switch name {
+		case "storageUsed":
+			return storageUsedGet(inter)
 
-func (PublicAccountValue) isAccountValue() {}
+		case "storageCapacity":
+			return storageCapacityGet()
 
-func (v PublicAccountValue) AddressValue() AddressValue {
-	return v.Address
-}
+		case "getCapability":
+			return accountGetCapabilityFunction(address)
 
-func (PublicAccountValue) DynamicType(_ *Interpreter) DynamicType {
-	return PublicAccountDynamicType{}
-}
+		case "getLinkTarget":
+			return inter.accountGetLinkTargetFunction(address)
+		}
 
-func (PublicAccountValue) StaticType() StaticType {
-	return PrimitiveStaticTypePublicAccount
-}
-
-func (v PublicAccountValue) Copy() Value {
-	return v
-}
-
-func (PublicAccountValue) GetOwner() *common.Address {
-	// value is never owned
-	return nil
-}
-
-func (PublicAccountValue) SetOwner(_ *common.Address) {
-	// NO-OP: value cannot be owned
-}
-
-func (PublicAccountValue) IsModified() bool {
-	return false
-}
-
-func (PublicAccountValue) SetModified(_ bool) {
-	// NO-OP
-}
-
-func (v PublicAccountValue) Destroy(_ *Interpreter, _ LocationRange) trampoline.Trampoline {
-	return trampoline.Done{}
-}
-
-func (v PublicAccountValue) String() string {
-	return fmt.Sprintf("PublicAccount(%s)", v.Address)
-}
-
-func (v PublicAccountValue) GetMember(inter *Interpreter, _ LocationRange, name string) Value {
-	switch name {
-	case "address":
-		return v.Address
-
-	case "storageUsed":
-		return v.storageUsedGet(inter)
-
-	case "storageCapacity":
-		return v.storageCapacityGet()
-
-	case "getCapability":
-		return accountGetCapabilityFunction(v.Address, false)
-
-	case "getLinkTarget":
-		return inter.accountGetLinkTargetFunction(v.Address)
-	case "keys":
-		return v.keys
+		return nil
 	}
 
-	return nil
-}
-
-func (PublicAccountValue) SetMember(_ *Interpreter, _ LocationRange, _ string, _ Value) {
-	panic(errors.NewUnreachableError())
+	return value
 }
 
 // PathValue
@@ -7077,10 +7012,10 @@ func (v LinkValue) String() string {
 
 // BuiltinCompositeValue
 type BuiltinCompositeValue struct {
-	Fields         *StringValueOrderedMap
-	staticType     StaticType
-	structType     *sema.BuiltinCompositeType
-	memberResolver func(interpreter *Interpreter, _ LocationRange, name string) Value
+	Fields                *StringValueOrderedMap
+	staticType            StaticType
+	structType            *sema.BuiltinCompositeType
+	dynamicMemberResolver func(interpreter *Interpreter, _ LocationRange, name string) Value
 }
 
 func NewBuiltinCompositeValue(structType *sema.BuiltinCompositeType, fields *StringValueOrderedMap) *BuiltinCompositeValue {
@@ -7146,8 +7081,8 @@ func (v *BuiltinCompositeValue) GetMember(interpreter *Interpreter, locationRang
 		}
 	}
 
-	if v.memberResolver != nil {
-		return v.memberResolver(interpreter, locationRange, name)
+	if v.dynamicMemberResolver != nil {
+		return v.dynamicMemberResolver(interpreter, locationRange, name)
 	}
 
 	return nil

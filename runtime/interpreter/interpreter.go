@@ -3969,12 +3969,6 @@ func IsSubType(subType DynamicType, superType sema.Type) bool {
 			return true
 		}
 
-	case PublicAccountDynamicType:
-		switch superType {
-		case sema.AnyStructType, sema.PublicAccountType:
-			return true
-		}
-
 	case DeployedContractDynamicType:
 		switch superType {
 		case sema.AnyStructType, sema.DeployedContractType:

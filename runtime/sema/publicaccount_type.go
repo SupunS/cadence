@@ -18,100 +18,67 @@
 
 package sema
 
-import (
-	"github.com/onflow/cadence/runtime/ast"
-	"github.com/onflow/cadence/runtime/common"
-)
-
 // PublicAccountType represents the publicly accessible portion of an account.
 //
-var PublicAccountType = &NominalType{
-	Name:                 "PublicAccount",
-	QualifiedName:        "PublicAccount",
-	TypeID:               "PublicAccount",
-	IsInvalid:            false,
-	IsResource:           false,
-	Storable:             false,
-	Equatable:            false,
-	ExternallyReturnable: false,
-	Members: func(t *NominalType) map[string]MemberResolver {
-		return map[string]MemberResolver{
-			"address": {
-				Kind: common.DeclarationKindField,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicConstantFieldMember(
-						t,
-						identifier,
-						&AddressType{},
-						accountTypeAddressFieldDocString,
-					)
-				},
-			},
-			"storageUsed": {
-				Kind: common.DeclarationKindField,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicConstantFieldMember(
-						t,
-						identifier,
-						&UInt64Type{},
-						accountTypeStorageUsedFieldDocString,
-					)
-				},
-			},
-			"storageCapacity": {
-				Kind: common.DeclarationKindField,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicConstantFieldMember(
-						t,
-						identifier,
-						&UInt64Type{},
-						accountTypeStorageCapacityFieldDocString,
-					)
-				},
-			},
-			"getCapability": {
-				Kind: common.DeclarationKindFunction,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicFunctionMember(
-						t,
-						identifier,
-						publicAccountTypeGetCapabilityFunctionType,
-						publicAccountTypeGetLinkTargetFunctionDocString,
-					)
-				},
-			},
-			"getLinkTarget": {
-				Kind: common.DeclarationKindFunction,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicFunctionMember(
-						t,
-						identifier,
-						accountTypeGetLinkTargetFunctionType,
-						accountTypeGetLinkTargetFunctionDocString,
-					)
-				},
-			},
-			"keys": {
-				Kind: common.DeclarationKindField,
-				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-					return NewPublicConstantFieldMember(
-						t,
-						identifier,
-						PublicAccountKeysType,
-						accountTypeKeysFieldDocString,
-					)
-				},
-			},
-		}
-	},
+var PublicAccountType = func() *BuiltinCompositeType {
 
-	NestedTypes: func() *StringTypeOrderedMap {
-		nestedTypes := NewStringTypeOrderedMap()
-		nestedTypes.Set(AccountKeysTypeName, PublicAccountKeysType)
-		return nestedTypes
-	}(),
-}
+	publicAccountType := &BuiltinCompositeType{
+		Identifier:           "PublicAccount",
+		IsInvalid:            false,
+		IsResource:           false,
+		Storable:             false,
+		Equatable:            false,
+		ExternallyReturnable: false,
 
+		nestedTypes: func() *StringTypeOrderedMap {
+			nestedTypes := NewStringTypeOrderedMap()
+			nestedTypes.Set(AccountKeysTypeName, PublicAccountKeysType)
+			return nestedTypes
+		}(),
+	}
+
+	var members = []*Member{
+		NewPublicConstantFieldMember(
+			publicAccountType,
+			"address",
+			&AddressType{},
+			accountTypeAddressFieldDocString,
+		),
+		NewPublicConstantFieldMember(
+			publicAccountType,
+			"storageUsed",
+			&UInt64Type{},
+			accountTypeStorageUsedFieldDocString,
+		),
+		NewPublicConstantFieldMember(
+			publicAccountType,
+			"storageCapacity",
+			&UInt64Type{},
+			accountTypeStorageCapacityFieldDocString,
+		),
+		NewPublicFunctionMember(
+			publicAccountType,
+			"getCapability",
+			authAccountTypeGetCapabilityFunctionType,
+			authAccountTypeGetCapabilityFunctionDocString,
+		),
+		NewPublicFunctionMember(
+			publicAccountType,
+			"getLinkTarget",
+			accountTypeGetLinkTargetFunctionType,
+			publicAccountTypeGetLinkTargetFunctionDocString,
+		),
+		NewPublicConstantFieldMember(
+			publicAccountType,
+			"keys",
+			PublicAccountKeysType,
+			accountTypeKeysFieldDocString,
+		),
+	}
+
+	publicAccountType.Members = GetMembersAsMap(members)
+	return publicAccountType
+}()
 
 // PublicAccountKeysType represents the keys associated with a public account.
 var PublicAccountKeysType = func() *BuiltinCompositeType {
@@ -137,7 +104,6 @@ var PublicAccountKeysType = func() *BuiltinCompositeType {
 	accountKeys.Members = GetMembersAsMap(members)
 	return accountKeys
 }()
-
 
 func init() {
 	// Set the container type after initializing the AccountKeysTypes, to avoid initializing loop.

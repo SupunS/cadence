@@ -6471,19 +6471,19 @@ func (t *CapabilityType) GetMembers() map[string]MemberResolver {
 }
 
 type BuiltinCompositeType struct {
-	Identifier    string
-	ContainerType Type
-	Members       *StringMemberOrderedMap
-	nestedTypes   *StringTypeOrderedMap
-	EnumRawType   Type
-	IsInvalid     bool
-	IsResource    bool
-	Storable      bool
-	Equatable     bool
-
+	Identifier           string
+	ContainerType        Type
+	Members              *StringMemberOrderedMap
+	nestedTypes          *StringTypeOrderedMap
+	EnumRawType          Type
+	IsInvalid            bool
+	IsResource           bool
+	Storable             bool
+	Equatable            bool
 	ExternallyReturnable bool
-	memberResolvers      map[string]MemberResolver
-	memberResolversOnce  sync.Once
+
+	memberResolvers     map[string]MemberResolver
+	memberResolversOnce sync.Once
 }
 
 func (*BuiltinCompositeType) IsType() {}
