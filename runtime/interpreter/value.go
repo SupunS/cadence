@@ -5815,7 +5815,7 @@ func (v *DictionaryValue) Destroy(inter *Interpreter, locationRange LocationRang
 }
 
 func (v *DictionaryValue) Get(inter *Interpreter, _ LocationRange, keyValue Value) Value {
-	key := dictionaryKey(keyValue)
+	key := DictionaryKey(keyValue)
 	value, ok := v.Entries.Get(key)
 	if ok {
 		return NewSomeValueOwningNonCopying(value)
@@ -5849,7 +5849,7 @@ func (v *DictionaryValue) Get(inter *Interpreter, _ LocationRange, keyValue Valu
 
 }
 
-func dictionaryKey(keyValue Value) string {
+func DictionaryKey(keyValue Value) string {
 	hasKeyString, ok := keyValue.(HasKeyString)
 	if !ok {
 		panic(errors.NewUnreachableError())
@@ -5880,7 +5880,7 @@ func (v *DictionaryValue) String() string {
 	}, len(v.Keys.Values))
 
 	for i, keyValue := range v.Keys.Values {
-		key := dictionaryKey(keyValue)
+		key := DictionaryKey(keyValue)
 		value, _ := v.Entries.Get(key)
 
 		// Value is potentially deferred,
@@ -5973,7 +5973,7 @@ func (v *DictionaryValue) Remove(inter *Interpreter, locationRange LocationRange
 	// Don't use `Entries` here: the value might be deferred and needs to be loaded
 	value := v.Get(inter, locationRange, keyValue)
 
-	key := dictionaryKey(keyValue)
+	key := DictionaryKey(keyValue)
 
 	// If a resource that was previously deferred is removed from the dictionary,
 	// we delete its old key in storage, and then rely on resource semantics
@@ -5993,7 +5993,7 @@ func (v *DictionaryValue) Remove(inter *Interpreter, locationRange LocationRange
 
 		// TODO: optimize linear scan
 		for i, keyValue := range v.Keys.Values {
-			if dictionaryKey(keyValue) == key {
+			if DictionaryKey(keyValue) == key {
 				v.Keys.Remove(i)
 				return value
 			}
@@ -6016,7 +6016,7 @@ func (v *DictionaryValue) Insert(inter *Interpreter, locationRange LocationRange
 	// Don't use `Entries` here: the value might be deferred and needs to be loaded
 	existingValue := v.Get(inter, locationRange, keyValue)
 
-	key := dictionaryKey(keyValue)
+	key := DictionaryKey(keyValue)
 
 	value.SetOwner(v.Owner)
 
