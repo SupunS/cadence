@@ -26,7 +26,6 @@ import (
 	"sync"
 
 	"github.com/onflow/cadence/fixedpoint"
-	"github.com/onflow/cadence/runtime/activations"
 	"github.com/onflow/cadence/runtime/ast"
 	"github.com/onflow/cadence/runtime/common"
 	"github.com/onflow/cadence/runtime/errors"
@@ -47,7 +46,16 @@ func qualifiedIdentifier(identifier string, containerType Type) string {
 			identifiers = append(identifiers, typedContainerType.Identifier)
 			containerType = typedContainerType.ContainerType
 		default:
-			panic(errors.NewUnreachableError())
+			switch containerType {
+			case PublicAccountType:
+				identifiers = append(identifiers, string(typedContainerType.ID()))
+				containerType = nil
+			case AuthAccountType:
+				identifiers = append(identifiers, string(typedContainerType.ID()))
+				containerType = nil
+			default:
+				panic(errors.NewUnreachableError())
+			}
 		}
 	}
 
@@ -3848,7 +3856,7 @@ func (t *CheckedFunctionType) CheckArgumentExpressions(
 // BaseTypeActivation is the base activation that contains
 // the types available in programs
 //
-var BaseTypeActivation = activations.NewActivation(nil)
+var BaseTypeActivation = NewVariableActivation(nil)
 
 func init() {
 
@@ -3872,6 +3880,10 @@ func init() {
 		&CapabilityType{},
 		DeployedContractType,
 		BlockType,
+		AccountKeyType,
+		PublicKeyType,
+		SignatureAlgorithmType,
+		HashAlgorithmType,
 	}
 
 	types := append(
@@ -3916,7 +3928,7 @@ func baseTypeVariable(name string, ty Type) *Variable {
 // BaseValueActivation is the base activation that contains
 // the values available in programs
 //
-var BaseValueActivation = activations.NewActivation(nil)
+var BaseValueActivation = NewVariableActivation(nil)
 
 var AllSignedFixedPointTypes = []Type{
 	&Fix64Type{},
@@ -4311,6 +4323,10 @@ func (t *CompositeType) QualifiedIdentifier() string {
 }
 
 func (t *CompositeType) ID() TypeID {
+	if t.Location == nil {
+		return TypeID(t.QualifiedIdentifier())
+	}
+
 	return t.Location.TypeID(t.QualifiedIdentifier())
 }
 
@@ -4541,6 +4557,23 @@ func NewPublicConstantFieldMember(
 	}
 }
 
+func NewPublicEnumCaseMember(
+	caseType Type,
+	identifier string,
+	docString string,
+) *Member {
+	return &Member{
+		Access: ast.AccessPublic,
+		Identifier: ast.Identifier{
+			Identifier: identifier,
+		},
+		DeclarationKind: common.DeclarationKindField,
+		TypeAnnotation:  NewTypeAnnotation(caseType),
+		VariableKind:    ast.VariableKindConstant,
+		DocString:       docString,
+	}
+}
+
 // IsStorable returns whether a member is a storable field
 func (m *Member) IsStorable(results map[*Member]bool) (result bool) {
 	test := func(t Type) bool {
@@ -4553,6 +4586,14 @@ func (m *Member) IsStorable(results map[*Member]bool) (result bool) {
 func (m *Member) IsExternallyReturnable(results map[*Member]bool) (result bool) {
 	test := func(t Type) bool {
 		return t.IsExternallyReturnable(results)
+	}
+	return m.testType(test, results)
+}
+
+// IsValidEventParameterType returns whether has a valid event parameter type
+func (m *Member) IsValidEventParameterType(results map[*Member]bool) bool {
+	test := func(t Type) bool {
+		return IsValidEventParameterType(t, results)
 	}
 	return m.testType(test, results)
 }
@@ -6479,4 +6520,139 @@ func (t *CapabilityType) GetMembers() map[string]MemberResolver {
 			},
 		},
 	})
+}
+
+var NativeCompositeTypes = map[string]*CompositeType{}
+
+func init() {
+	types := []*CompositeType{
+		AccountKeyType,
+		PublicKeyType,
+		HashAlgorithmType,
+		SignatureAlgorithmType,
+		AuthAccountKeysType,
+		PublicAccountKeysType,
+	}
+
+	for _, semaType := range types {
+		NativeCompositeTypes[semaType.QualifiedIdentifier()] = semaType
+	}
+}
+
+const AccountKeyTypeName = "AccountKey"
+const AccountKeyKeyIndexField = "keyIndex"
+const AccountKeyPublicKeyField = "publicKey"
+const AccountKeyHashAlgoField = "hashAlgorithm"
+const AccountKeyWeightField = "weight"
+const AccountKeyIsRevokedField = "isRevoked"
+
+// AccountKeyType represents the key associated with an account.
+var AccountKeyType = func() *CompositeType {
+
+	accountKeyType := &CompositeType{
+		Identifier: AccountKeyTypeName,
+		Kind:       common.CompositeKindStructure,
+	}
+
+	const accountKeyIndexFieldDocString = `The index of the account key`
+	const accountKeyPublicKeyFieldDocString = `The public key of the account`
+	const accountKeyHashAlgorithmFieldDocString = `The hash algorithm used by the public key`
+	const accountKeyWeightFieldDocString = `The weight assigned to the public key`
+	const accountKeyIsRevokedFieldDocString = `Flag indicating whether the key is revoked`
+
+	var members = []*Member{
+		NewPublicConstantFieldMember(
+			accountKeyType,
+			AccountKeyKeyIndexField,
+			&IntType{},
+			accountKeyIndexFieldDocString,
+		),
+		NewPublicConstantFieldMember(
+			accountKeyType,
+			AccountKeyPublicKeyField,
+			PublicKeyType,
+			accountKeyPublicKeyFieldDocString,
+		),
+		NewPublicConstantFieldMember(
+			accountKeyType,
+			AccountKeyHashAlgoField,
+			HashAlgorithmType,
+			accountKeyHashAlgorithmFieldDocString,
+		),
+		NewPublicConstantFieldMember(
+			accountKeyType,
+			AccountKeyWeightField,
+			&UFix64Type{},
+			accountKeyWeightFieldDocString,
+		),
+		NewPublicConstantFieldMember(
+			accountKeyType,
+			AccountKeyIsRevokedField,
+			BoolType,
+			accountKeyIsRevokedFieldDocString,
+		),
+	}
+
+	accountKeyType.Members = GetMembersAsMap(members)
+	accountKeyType.Fields = getFieldNames(members)
+	return accountKeyType
+}()
+
+const PublicKeyTypeName = "PublicKey"
+const PublicKeyPublicKeyField = "publicKey"
+const PublicKeySignAlgoField = "signatureAlgorithm"
+
+// PublicKeyType represents the public key associated with an account key.
+var PublicKeyType = func() *CompositeType {
+
+	accountKeyType := &CompositeType{
+		Identifier: PublicKeyTypeName,
+		Kind:       common.CompositeKindStructure,
+	}
+
+	const publicKeyKeyFieldDocString = `The public key`
+	const publicKeySignAlgoFieldDocString = `The signature algorithm to be used with the key`
+
+	var members = []*Member{
+		NewPublicConstantFieldMember(
+			accountKeyType,
+			PublicKeyPublicKeyField,
+			&VariableSizedType{Type: &UInt8Type{}},
+			publicKeyKeyFieldDocString,
+		),
+		NewPublicConstantFieldMember(
+			accountKeyType,
+			PublicKeySignAlgoField,
+			SignatureAlgorithmType,
+			publicKeySignAlgoFieldDocString,
+		),
+	}
+
+	accountKeyType.Members = GetMembersAsMap(members)
+	accountKeyType.Fields = getFieldNames(members)
+	return accountKeyType
+}()
+
+type CryptoAlgorithm interface {
+	RawValue() uint8
+	Name() string
+	DocString() string
+}
+
+func GetMembersAsMap(members []*Member) *StringMemberOrderedMap {
+	membersMap := NewStringMemberOrderedMap()
+	for _, member := range members {
+		membersMap.Set(member.Identifier.Identifier, member)
+	}
+
+	return membersMap
+}
+
+func getFieldNames(members []*Member) []string {
+	fields := make([]string, len(members))
+	for index, member := range members {
+		fields[index] = member.Identifier.Identifier
+	}
+
+	return fields
 }

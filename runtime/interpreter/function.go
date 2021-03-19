@@ -21,7 +21,6 @@ package interpreter
 import (
 	"fmt"
 
-	"github.com/onflow/cadence/runtime/activations"
 	"github.com/onflow/cadence/runtime/ast"
 	"github.com/onflow/cadence/runtime/common"
 	"github.com/onflow/cadence/runtime/errors"
@@ -35,7 +34,7 @@ type Invocation struct {
 	Arguments          []Value
 	ArgumentTypes      []sema.Type
 	TypeParameterTypes *sema.TypeParameterTypeOrderedMap
-	LocationRange      LocationRange
+	GetLocationRange   func() LocationRange
 	Interpreter        *Interpreter
 }
 
@@ -53,7 +52,7 @@ type InterpretedFunctionValue struct {
 	Interpreter      *Interpreter
 	ParameterList    *ast.ParameterList
 	Type             *sema.FunctionType
-	Activation       *activations.Activation
+	Activation       *VariableActivation
 	BeforeStatements []ast.Statement
 	PreConditions    ast.Conditions
 	Statements       []ast.Statement
@@ -170,12 +169,12 @@ func (f HostFunctionValue) Invoke(invocation Invocation) Value {
 	return f.Function(invocation)
 }
 
-func (f HostFunctionValue) GetMember(_ *Interpreter, _ LocationRange, name string) Value {
+func (f HostFunctionValue) GetMember(_ *Interpreter, _ func() LocationRange, name string) Value {
 	value, _ := f.Members.Get(name)
 	return value
 }
 
-func (f HostFunctionValue) SetMember(_ *Interpreter, _ LocationRange, _ string, _ Value) {
+func (f HostFunctionValue) SetMember(_ *Interpreter, _ func() LocationRange, _ string, _ Value) {
 	panic(errors.NewUnreachableError())
 }
 

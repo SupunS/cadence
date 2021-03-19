@@ -28,10 +28,14 @@ func (interpreter *Interpreter) InvokeFunctionValue(
 	arguments []Value,
 	argumentTypes []sema.Type,
 	parameterTypes []sema.Type,
-	invocationRange ast.Range,
-) (value Value, err error) {
+	invocationPosition ast.HasPosition,
+) (
+	value Value,
+	err error,
+) {
+
 	// recover internal panics and return them as an error
-	defer recoverErrors(func(internalErr error) {
+	defer interpreter.recoverErrors(func(internalErr error) {
 		err = internalErr
 	})
 
@@ -41,7 +45,7 @@ func (interpreter *Interpreter) InvokeFunctionValue(
 		argumentTypes,
 		parameterTypes,
 		nil,
-		invocationRange,
+		invocationPosition,
 	), nil
 }
 
@@ -51,7 +55,7 @@ func (interpreter *Interpreter) invokeFunctionValue(
 	argumentTypes []sema.Type,
 	parameterTypes []sema.Type,
 	typeParameterTypes *sema.TypeParameterTypeOrderedMap,
-	invocationRange ast.Range,
+	invocationPosition ast.HasPosition,
 ) Value {
 
 	parameterTypeCount := len(parameterTypes)
@@ -67,18 +71,13 @@ func (interpreter *Interpreter) invokeFunctionValue(
 		}
 	}
 
-	// TODO: optimize: only potentially used by host-functions
-
-	locationRange := LocationRange{
-		Location: interpreter.Location,
-		Range:    invocationRange,
-	}
+	getLocationRange := locationRangeGetter(interpreter.Location, invocationPosition)
 
 	invocation := Invocation{
 		Arguments:          argumentCopies,
 		ArgumentTypes:      argumentTypes,
 		TypeParameterTypes: typeParameterTypes,
-		LocationRange:      locationRange,
+		GetLocationRange:   getLocationRange,
 		Interpreter:        interpreter,
 	}
 
@@ -115,17 +114,15 @@ func (interpreter *Interpreter) invokeInterpretedFunctionActivated(
 		interpreter.bindParameterArguments(function.ParameterList, arguments)
 	}
 
-	functionBlockTrampoline := interpreter.visitFunctionBody(
+	return interpreter.visitFunctionBody(
 		function.BeforeStatements,
 		function.PreConditions,
-		func() interface{} {
-			return interpreter.runAllStatements(interpreter.visitStatements(function.Statements))
+		func() controlReturn {
+			return interpreter.visitStatements(function.Statements)
 		},
 		function.PostConditions,
 		function.Type.ReturnTypeAnnotation.Type,
 	)
-
-	return interpreter.runAllStatements(functionBlockTrampoline).(Value)
 }
 
 // bindParameterArguments binds the argument values to the given parameters

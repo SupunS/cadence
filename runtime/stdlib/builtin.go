@@ -21,6 +21,7 @@ package stdlib
 import (
 	"fmt"
 
+	"github.com/onflow/cadence/runtime/common"
 	"github.com/onflow/cadence/runtime/interpreter"
 	"github.com/onflow/cadence/runtime/sema"
 )
@@ -57,7 +58,7 @@ var AssertFunction = NewStandardLibraryFunction(
 			}
 			panic(AssertionError{
 				Message:       message,
-				LocationRange: invocation.LocationRange,
+				LocationRange: invocation.GetLocationRange(),
 			})
 		}
 		return interpreter.VoidValue{}
@@ -95,7 +96,7 @@ var PanicFunction = NewStandardLibraryFunction(
 		message := invocation.Arguments[0].(*interpreter.StringValue)
 		panic(PanicError{
 			Message:       message.Str,
-			LocationRange: invocation.LocationRange,
+			LocationRange: invocation.GetLocationRange(),
 		})
 	},
 )
@@ -105,6 +106,7 @@ var PanicFunction = NewStandardLibraryFunction(
 var BuiltinFunctions = StandardLibraryFunctions{
 	AssertFunction,
 	PanicFunction,
+	CreatePublicKeyFunction,
 }
 
 // LogFunction
@@ -135,4 +137,95 @@ var LogFunction = NewStandardLibraryFunction(
 
 var HelperFunctions = StandardLibraryFunctions{
 	LogFunction,
+}
+
+var CreatePublicKeyFunction = NewStandardLibraryFunction(
+	sema.PublicKeyTypeName,
+	&sema.FunctionType{
+		Parameters: []*sema.Parameter{
+			{
+				Label:          sema.PublicKeyPublicKeyField,
+				Identifier:     sema.PublicKeyPublicKeyField,
+				TypeAnnotation: sema.NewTypeAnnotation(&sema.VariableSizedType{Type: &sema.UInt8Type{}}),
+			},
+			{
+				Label:          sema.PublicKeySignAlgoField,
+				Identifier:     sema.PublicKeySignAlgoField,
+				TypeAnnotation: sema.NewTypeAnnotation(sema.SignatureAlgorithmType),
+			},
+		},
+		ReturnTypeAnnotation: sema.NewTypeAnnotation(sema.PublicKeyType),
+	},
+
+	func(invocation interpreter.Invocation) interpreter.Value {
+		publicKey := invocation.Arguments[0].(*interpreter.ArrayValue)
+		signAlgo := invocation.Arguments[1].(*interpreter.CompositeValue)
+
+		return interpreter.NewPublicKeyValue(publicKey, signAlgo)
+	},
+)
+
+// BuiltinValues
+
+var BuiltinValues = StandardLibraryValues{
+	SignatureAlgorithmValue,
+	HashAlgorithmValue,
+}
+
+var SignatureAlgorithmValue = StandardLibraryValue{
+	Name:  sema.SignatureAlgorithmTypeName,
+	Type:  nativeEnumType(sema.SignatureAlgorithmType, sema.SignatureAlgorithms),
+	Value: cryptoAlgorithmEnumValue(sema.SignatureAlgorithmType, sema.SignatureAlgorithms),
+	Kind:  common.DeclarationKindEnum,
+}
+
+var HashAlgorithmValue = StandardLibraryValue{
+	Name:  sema.HashAlgorithmTypeName,
+	Type:  nativeEnumType(sema.HashAlgorithmType, sema.HashAlgorithms),
+	Value: cryptoAlgorithmEnumValue(sema.HashAlgorithmType, sema.HashAlgorithms),
+	Kind:  common.DeclarationKindEnum,
+}
+
+func nativeEnumType(enumType *sema.CompositeType, enumCases []sema.CryptoAlgorithm) *sema.SpecialFunctionType {
+	members := make([]*sema.Member, len(enumCases))
+	for i, algo := range enumCases {
+		members[i] = sema.NewPublicEnumCaseMember(
+			enumType,
+			algo.Name(),
+			algo.DocString(),
+		)
+	}
+
+	constructorType := &sema.SpecialFunctionType{
+		FunctionType: &sema.FunctionType{
+			Parameters: []*sema.Parameter{
+				{
+					Identifier:     sema.EnumRawValueFieldName,
+					TypeAnnotation: sema.NewTypeAnnotation(enumType.EnumRawType),
+				},
+			},
+			ReturnTypeAnnotation: sema.NewTypeAnnotation(
+				&sema.OptionalType{
+					Type: enumType,
+				},
+			),
+		},
+		Members: sema.GetMembersAsMap(members),
+	}
+
+	return constructorType
+}
+
+func cryptoAlgorithmEnumValue(enumType *sema.CompositeType, enumCases []sema.CryptoAlgorithm) (value interpreter.Value) {
+	caseCount := len(enumCases)
+	caseValues := make([]*interpreter.CompositeValue, caseCount)
+	constructorMembers := interpreter.NewStringValueOrderedMap()
+
+	for i, enumCase := range enumCases {
+		caseValue := interpreter.NewCryptoAlgorithmEnumCaseValue(enumType, enumCase.RawValue())
+		caseValues[i] = caseValue
+		constructorMembers.Set(enumCase.Name(), caseValue)
+	}
+
+	return interpreter.EnumConstructorFunction(caseValues, constructorMembers)
 }
