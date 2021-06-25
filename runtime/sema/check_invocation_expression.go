@@ -436,6 +436,8 @@ func (checker *Checker) checkInvocation(
 
 	// Add extra argument types
 
+	//inferArgTypes := typeParameterCount > 0
+
 	for i := minCount; i < argumentCount; i++ {
 		argument := invocationExpression.Arguments[i]
 		// TODO: pass the expected type to support type inferring for parameters
@@ -518,35 +520,43 @@ func (checker *Checker) checkInvocationRequiredArgument(
 ) {
 	argument := arguments[argumentIndex]
 
-	// TODO: pass the expected type to support type inferring for parameters
-	argumentType := checker.VisitExpression(argument.Expression, nil)
+	parameter := functionType.Parameters[argumentIndex]
+	parameterType = parameter.TypeAnnotation.Type
+
+	var argumentType Type
+	if len(functionType.TypeParameters) == 0 {
+		// If the function doesn't use generic types, then the
+		// param types can be used to infer the types for arguments.
+		argumentType = checker.VisitExpression(argument.Expression, parameterType)
+	} else {
+		// TODO: pass the expected type to support for parameters
+		argumentType = checker.VisitExpression(argument.Expression, nil)
+
+		// Try to unify the parameter type with the argument type.
+		// If unification fails, fall back to the parameter type for now.
+
+		argumentRange := ast.NewRangeFromPositioned(argument.Expression)
+
+		if parameterType.Unify(argumentType, typeParameters, checker.report, argumentRange) {
+			parameterType = parameterType.Resolve(typeParameters)
+			if parameterType == nil {
+				parameterType = InvalidType
+			}
+		}
+
+		// Check that the type of the argument matches the type of the parameter.
+
+		// TODO: remove this once type inferring support for parameters is added
+		checker.checkInvocationArgumentParameterTypeCompatibility(
+			argument.Expression,
+			argumentType,
+			parameterType,
+		)
+	}
+
 	argumentTypes[argumentIndex] = argumentType
 
 	checker.checkInvocationArgumentMove(argument.Expression, argumentType)
-
-	parameter := functionType.Parameters[argumentIndex]
-
-	// Try to unify the parameter type with the argument type.
-	// If unification fails, fall back to the parameter type for now.
-
-	argumentRange := ast.NewRangeFromPositioned(argument.Expression)
-
-	parameterType = parameter.TypeAnnotation.Type
-	if parameterType.Unify(argumentType, typeParameters, checker.report, argumentRange) {
-		parameterType = parameterType.Resolve(typeParameters)
-		if parameterType == nil {
-			parameterType = InvalidType
-		}
-	}
-
-	// Check that the type of the argument matches the type of the parameter.
-
-	// TODO: remove this once type inferring support for parameters is added
-	checker.checkInvocationArgumentParameterTypeCompatibility(
-		argument.Expression,
-		argumentType,
-		parameterType,
-	)
 
 	return parameterType
 }
