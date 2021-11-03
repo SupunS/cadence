@@ -35,7 +35,7 @@ const (
 
 type typeNullDenotationFunc func(parser *parser, token lexer.Token) ast.Type
 
-var typeNullDenotations = map[lexer.TokenType]typeNullDenotationFunc{}
+var typeNullDenotations [lexer.TokenMax]typeNullDenotationFunc
 
 type typeLeftDenotationFunc func(parser *parser, token lexer.Token, left ast.Type) ast.Type
 type typeMetaLeftDenotationFunc func(
@@ -47,9 +47,9 @@ type typeMetaLeftDenotationFunc func(
 	done bool,
 )
 
-var typeLeftBindingPowers = map[lexer.TokenType]int{}
-var typeLeftDenotations = map[lexer.TokenType]typeLeftDenotationFunc{}
-var typeMetaLeftDenotations = map[lexer.TokenType]typeMetaLeftDenotationFunc{}
+var typeLeftBindingPowers [lexer.TokenMax]int
+var typeLeftDenotations [lexer.TokenMax]typeLeftDenotationFunc
+var typeMetaLeftDenotations [lexer.TokenMax]typeMetaLeftDenotationFunc
 
 func setTypeNullDenotation(tokenType lexer.TokenType, nullDenotation typeNullDenotationFunc) {
 	current := typeNullDenotations[tokenType]
@@ -682,8 +682,8 @@ func applyTypeMetaLeftDenotation(
 	// e.g. determining the left binding power based on parsing more tokens,
 	// or performing look-ahead
 
-	metaLeftDenotation, ok := typeMetaLeftDenotations[p.current.Type]
-	if !ok {
+	metaLeftDenotation := typeMetaLeftDenotations[p.current.Type]
+	if metaLeftDenotation == nil {
 		metaLeftDenotation = defaultTypeMetaLeftDenotation
 	}
 
@@ -734,16 +734,16 @@ func parseTypeAnnotation(p *parser) *ast.TypeAnnotation {
 
 func applyTypeNullDenotation(p *parser, token lexer.Token) ast.Type {
 	tokenType := token.Type
-	nullDenotation, ok := typeNullDenotations[tokenType]
-	if !ok {
-		panic(fmt.Errorf("unexpected token in type: %s", token.Type))
+	nullDenotation := typeNullDenotations[tokenType]
+	if nullDenotation == nil {
+		panic(fmt.Errorf("unexpected token in type: %s", tokenType))
 	}
 	return nullDenotation(p, token)
 }
 
 func applyTypeLeftDenotation(p *parser, token lexer.Token, left ast.Type) ast.Type {
-	leftDenotation, ok := typeLeftDenotations[token.Type]
-	if !ok {
+	leftDenotation := typeLeftDenotations[token.Type]
+	if leftDenotation == nil {
 		panic(fmt.Errorf("unexpected token in type: %s", token.Type))
 	}
 	return leftDenotation(p, token, left)
@@ -755,7 +755,8 @@ func parseNominalTypeInvocationRemainder(p *parser) *ast.InvocationExpression {
 	ty := parseNominalTypeRemainder(p, identifier)
 
 	p.skipSpaceAndComments(true)
-	p.mustOne(lexer.TokenParenOpen)
+	parenOpenToken := p.mustOne(lexer.TokenParenOpen)
+	argumentsStartPos := parenOpenToken.EndPos
 	arguments, endPos := parseArgumentListRemainder(p)
 
 	var invokedExpression ast.Expression = &ast.IdentifierExpression{
@@ -772,6 +773,7 @@ func parseNominalTypeInvocationRemainder(p *parser) *ast.InvocationExpression {
 	return &ast.InvocationExpression{
 		InvokedExpression: invokedExpression,
 		Arguments:         arguments,
+		ArgumentsStartPos: argumentsStartPos,
 		EndPos:            endPos,
 	}
 }

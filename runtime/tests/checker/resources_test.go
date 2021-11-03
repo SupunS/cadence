@@ -91,8 +91,8 @@ func TestCheckFailableCastingWithResourceAnnotation(t *testing.T) {
 
 				errs := ExpectCheckerErrors(t, err, 2)
 
-				assert.IsType(t, &sema.InvalidEventUsageError{}, errs[0])
-				assert.IsType(t, &sema.InvalidResourceAnnotationError{}, errs[1])
+				assert.IsType(t, &sema.InvalidResourceAnnotationError{}, errs[0])
+				assert.IsType(t, &sema.InvalidEventUsageError{}, errs[1])
 
 			default:
 				panic(errors.NewUnreachableError())
@@ -439,8 +439,8 @@ func TestCheckVariableDeclarationWithResourceAnnotation(t *testing.T) {
 			case common.CompositeKindEvent:
 				errs := ExpectCheckerErrors(t, err, 2)
 
-				assert.IsType(t, &sema.InvalidEventUsageError{}, errs[0])
-				assert.IsType(t, &sema.InvalidResourceAnnotationError{}, errs[1])
+				assert.IsType(t, &sema.InvalidResourceAnnotationError{}, errs[0])
+				assert.IsType(t, &sema.InvalidEventUsageError{}, errs[1])
 
 			default:
 				panic(errors.NewUnreachableError())
@@ -1122,8 +1122,8 @@ func TestCheckFunctionTypeReturnTypeWithResourceAnnotation(t *testing.T) {
 				errs := ExpectCheckerErrors(t, err, 3)
 
 				assert.IsType(t, &sema.InvalidResourceAnnotationError{}, errs[0])
-				assert.IsType(t, &sema.InvalidEventUsageError{}, errs[1])
-				assert.IsType(t, &sema.InvalidResourceAnnotationError{}, errs[2])
+				assert.IsType(t, &sema.InvalidResourceAnnotationError{}, errs[1])
+				assert.IsType(t, &sema.InvalidEventUsageError{}, errs[2])
 
 			default:
 				panic(errors.NewUnreachableError())
@@ -1468,9 +1468,9 @@ func TestCheckInvalidCreateImportedResource(t *testing.T) {
 		ParseAndCheckOptions{
 			Options: []sema.Option{
 				sema.WithImportHandler(
-					func(checker *sema.Checker, location common.Location) (sema.Import, *sema.CheckerError) {
-						return sema.CheckerImport{
-							Checker: importedChecker,
+					func(_ *sema.Checker, _ common.Location, _ ast.Range) (sema.Import, error) {
+						return sema.ElaborationImport{
+							Elaboration: importedChecker.Elaboration,
 						}, nil
 					},
 				),
@@ -2704,7 +2704,7 @@ func TestCheckInvalidResourceLossThroughReturn(t *testing.T) {
 	assert.IsType(t, &sema.UnreachableStatementError{}, errs[1])
 }
 
-func TestCheckInvalidResourceLossThroughReturnInIfStatementThrenBranch(t *testing.T) {
+func TestCheckInvalidResourceLossThroughReturnInIfStatementThenBranch(t *testing.T) {
 
 	t.Parallel()
 
@@ -3081,10 +3081,9 @@ func TestCheckInvalidResourceInterfaceUseAsType(t *testing.T) {
       let r: @I <- create R()
     `)
 
-	errs := ExpectCheckerErrors(t, err, 2)
+	errs := ExpectCheckerErrors(t, err, 1)
 
 	assert.IsType(t, &sema.InvalidInterfaceTypeError{}, errs[0])
-	assert.IsType(t, &sema.TypeMismatchError{}, errs[1])
 }
 
 // TestCheckResourceInterfaceUseAsType test if a resource
@@ -3909,10 +3908,13 @@ func TestCheckInvalidResourceMethodBinding(t *testing.T) {
 
 	t.Parallel()
 
+	// TODO: replace AnyStruct return type with ([@R]#(@R): Void)
+	//   once bound function types are supported
+
 	_, err := ParseAndCheck(t, `
       resource R {}
 
-      fun test(): ((@R): Void) {
+      fun test(): AnyStruct {
           let rs <- [<-create R()]
           let append = rs.append
           destroy rs
@@ -4574,10 +4576,9 @@ func TestCheckInvalidResourceInterfaceType(t *testing.T) {
           let ri: @RI <- create R()
         `)
 
-		errs := ExpectCheckerErrors(t, err, 2)
+		errs := ExpectCheckerErrors(t, err, 1)
 
 		assert.IsType(t, &sema.InvalidInterfaceTypeError{}, errs[0])
-		assert.IsType(t, &sema.TypeMismatchError{}, errs[1])
 	})
 
 	t.Run("in array", func(t *testing.T) {
@@ -4589,10 +4590,9 @@ func TestCheckInvalidResourceInterfaceType(t *testing.T) {
           let ri: @[RI] <- [<-create R()]
         `)
 
-		errs := ExpectCheckerErrors(t, err, 2)
+		errs := ExpectCheckerErrors(t, err, 1)
 
 		assert.IsType(t, &sema.InvalidInterfaceTypeError{}, errs[0])
-		assert.IsType(t, &sema.TypeMismatchError{}, errs[1])
 	})
 }
 
@@ -4841,5 +4841,211 @@ func TestCheckResourceMoveMemberInvocation(t *testing.T) {
 		errs := ExpectCheckerErrors(t, err, 1)
 
 		assert.IsType(t, &sema.NotDeclaredError{}, errs[0])
+	})
+}
+
+func TestCheckInvalidationInPreCondition(t *testing.T) {
+
+	t.Parallel()
+
+	_, err := ParseAndCheck(t, `
+      resource R {}
+
+      fun duplicate(_ r: @R): Bool {
+          destroy r
+          return true
+      }
+
+      fun duplicatePre(_ r: @R): @R {
+          pre {
+              duplicate(<-r)
+          }
+          return <- r
+      }
+    `)
+
+	errs := ExpectCheckerErrors(t, err, 1)
+
+	assert.IsType(t, &sema.ResourceUseAfterInvalidationError{}, errs[0])
+}
+
+func TestCheckInvalidationInPostConditionBefore(t *testing.T) {
+
+	t.Parallel()
+
+	_, err := ParseAndCheck(t, `
+      resource R {}
+
+      fun duplicate(_ r: @R): Bool {
+          destroy r
+          return true
+      }
+
+      fun duplicatePostBefore(_ r: @R): @R {
+          post {
+              before(duplicate(<-r))
+          }
+          return <- r
+      }
+    `)
+
+	errs := ExpectCheckerErrors(t, err, 1)
+
+	assert.IsType(t, &sema.ResourceUseAfterInvalidationError{}, errs[0])
+}
+
+func TestCheckInvalidationInPostCondition(t *testing.T) {
+
+	t.Parallel()
+
+	_, err := ParseAndCheck(t, `
+      resource R {}
+
+      fun duplicate(_ r: @R): Bool {
+          destroy r
+          return true
+      }
+
+      fun duplicatePostBefore(_ r: @R): @R {
+          post {
+              duplicate(<-r)
+          }
+          return <- r
+      }
+    `)
+
+	errs := ExpectCheckerErrors(t, err, 1)
+
+	assert.IsType(t, &sema.ResourceUseAfterInvalidationError{}, errs[0])
+}
+
+func TestCheckFunctionDefinitelyHaltedNoResourceLoss(t *testing.T) {
+
+	t.Parallel()
+
+	// A function which definitely halts does not lead to a resource loss error
+
+	t.Run("panic statement", func(t *testing.T) {
+
+		t.Parallel()
+
+		_, err := ParseAndCheckWithPanic(t, `
+          fun duplicate(_ r: @AnyResource) {
+              panic("")
+          }
+        `)
+
+		require.NoError(t, err)
+	})
+
+	t.Run("if statement", func(t *testing.T) {
+
+		t.Parallel()
+
+		_, err := ParseAndCheckWithPanic(t, `
+          fun duplicate(_ r: @AnyResource, x: Bool) {
+              if x {
+                  panic("true")
+              } else {
+                  panic("false")
+              }
+          }
+        `)
+
+		require.NoError(t, err)
+	})
+}
+
+func TestCheckOptionalResourceBindingWithSecondValue(t *testing.T) {
+
+	t.Parallel()
+
+	_, err := ParseAndCheck(t, `
+      resource R {
+          let field: Int
+
+          init() {
+              self.field = 1
+          }
+      }
+
+      resource Test {
+
+          var r: @R?
+
+          init() {
+              self.r <- create R()
+          }
+
+          destroy () {
+              destroy self.r
+          }
+
+          fun duplicate(): @R? {
+              if let r <- self.r <- nil {
+                  let r2 <- self.r <- nil
+                  self.r <-! r2
+                  return <-r
+              } else {
+                  return nil
+              }
+          }
+      }
+
+      fun test() {
+          let test <- create Test()
+          let copy <- test.duplicate()
+
+          destroy copy
+          destroy test
+      }
+    `)
+	require.NoError(t, err)
+}
+
+func TestCheckEmptyResourceCollectionMove(t *testing.T) {
+
+	t.Parallel()
+
+	t.Run("Dictionary", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := ParseAndCheck(t, `
+            resource R {
+                init() {
+                }
+            }
+
+            fun foo() {
+               bar(a: <-{})
+            }
+
+            fun bar(a: @{String: R}) {
+                destroy a
+            }
+        `)
+
+		require.NoError(t, err)
+	})
+
+	t.Run("Array", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := ParseAndCheck(t, `
+            resource R {
+                init() {
+                }
+            }
+
+            fun foo() {
+               bar(a: <-[])
+            }
+
+            fun bar(a: @[R]) {
+                destroy a
+            }
+        `)
+
+		require.NoError(t, err)
 	})
 }

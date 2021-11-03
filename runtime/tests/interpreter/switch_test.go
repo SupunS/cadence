@@ -24,6 +24,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	. "github.com/onflow/cadence/runtime/tests/utils"
+
 	"github.com/onflow/cadence/runtime/interpreter"
 	"github.com/onflow/cadence/runtime/sema"
 	"github.com/onflow/cadence/runtime/tests/checker"
@@ -35,7 +37,7 @@ func TestInterpretSwitchStatement(t *testing.T) {
 
 	t.Run("Bool", func(t *testing.T) {
 
-		inter := parseCheckAndInterpretWithOptions(t,
+		inter, err := parseCheckAndInterpretWithOptions(t,
 			`
               fun test(_ x: Bool): Int {
                   switch x {
@@ -57,6 +59,7 @@ func TestInterpretSwitchStatement(t *testing.T) {
 				},
 			},
 		)
+		require.NoError(t, err)
 
 		for argument, expected := range map[interpreter.Value]interpreter.Value{
 			interpreter.BoolValue(true):  interpreter.NewIntValueFromInt64(1),
@@ -66,13 +69,13 @@ func TestInterpretSwitchStatement(t *testing.T) {
 			actual, err := inter.Invoke("test", argument)
 			require.NoError(t, err)
 
-			assert.Equal(t, expected, actual)
+			AssertValuesEqual(t, inter, expected, actual)
 		}
 	})
 
 	t.Run("Int", func(t *testing.T) {
 
-		inter := parseCheckAndInterpretWithOptions(t,
+		inter, err := parseCheckAndInterpretWithOptions(t,
 			`
               fun test(_ x: Int): String {
                   switch x {
@@ -94,6 +97,7 @@ func TestInterpretSwitchStatement(t *testing.T) {
 				},
 			},
 		)
+		require.NoError(t, err)
 
 		for argument, expected := range map[interpreter.Value]interpreter.Value{
 			interpreter.NewIntValueFromInt64(1): interpreter.NewStringValue("1"),
@@ -105,13 +109,13 @@ func TestInterpretSwitchStatement(t *testing.T) {
 			actual, err := inter.Invoke("test", argument)
 			require.NoError(t, err)
 
-			assert.Equal(t, expected, actual)
+			AssertValuesEqual(t, inter, expected, actual)
 		}
 	})
 
 	t.Run("break", func(t *testing.T) {
 
-		inter := parseCheckAndInterpretWithOptions(t,
+		inter, err := parseCheckAndInterpretWithOptions(t,
 			`
               fun test(_ x: Int): String {
                   switch x {
@@ -134,6 +138,7 @@ func TestInterpretSwitchStatement(t *testing.T) {
 				},
 			},
 		)
+		require.NoError(t, err)
 
 		for argument, expected := range map[interpreter.Value]interpreter.Value{
 			interpreter.NewIntValueFromInt64(1): interpreter.NewStringValue("4"),
@@ -145,7 +150,7 @@ func TestInterpretSwitchStatement(t *testing.T) {
 			actual, err := inter.Invoke("test", argument)
 			require.NoError(t, err)
 
-			assert.Equal(t, expected, actual)
+			AssertValuesEqual(t, inter, expected, actual)
 		}
 	})
 
@@ -166,25 +171,104 @@ func TestInterpretSwitchStatement(t *testing.T) {
           }
         `)
 
-		for argument, expected := range map[interpreter.Value]interpreter.Value{
-			interpreter.NewIntValueFromInt64(1): interpreter.NewArrayValueUnownedNonCopying(
+		for argument, expectedValues := range map[interpreter.Value][]interpreter.Value{
+			interpreter.NewIntValueFromInt64(1): {
 				interpreter.NewStringValue("1"),
-			),
-			interpreter.NewIntValueFromInt64(2): interpreter.NewArrayValueUnownedNonCopying(
+			},
+			interpreter.NewIntValueFromInt64(2): {
 				interpreter.NewStringValue("2"),
-			),
-			interpreter.NewIntValueFromInt64(3): interpreter.NewArrayValueUnownedNonCopying(
+			},
+			interpreter.NewIntValueFromInt64(3): {
 				interpreter.NewStringValue("3"),
-			),
-			interpreter.NewIntValueFromInt64(4): interpreter.NewArrayValueUnownedNonCopying(
+			},
+			interpreter.NewIntValueFromInt64(4): {
 				interpreter.NewStringValue("3"),
-			),
+			},
 		} {
 
 			actual, err := inter.Invoke("test", argument)
 			require.NoError(t, err)
 
-			assert.Equal(t, expected, actual)
+			require.IsType(t, actual, &interpreter.ArrayValue{})
+			arrayValue := actual.(*interpreter.ArrayValue)
+
+			AssertValueSlicesEqual(
+				t,
+				inter,
+				expectedValues,
+				arrayElements(inter, arrayValue),
+			)
+		}
+	})
+
+	t.Run("optional", func(t *testing.T) {
+
+		inter, err := parseCheckAndInterpretWithOptions(t,
+			`
+              fun test(_ x: Int?, _ y: Int?): String {
+                  switch x {
+                  case y:
+                      return "1"
+                  case nil:
+                      return "2"
+                  default:
+                      return "3"
+                  }
+                  return "4"
+              }
+            `,
+			ParseCheckAndInterpretOptions{
+				HandleCheckerError: func(err error) {
+					errs := checker.ExpectCheckerErrors(t, err, 1)
+
+					assert.IsType(t, &sema.UnreachableStatementError{}, errs[0])
+				},
+			},
+		)
+		require.NoError(t, err)
+
+		type testCase struct {
+			arguments []interpreter.Value
+			expected  interpreter.Value
+		}
+
+		for _, testCase := range []testCase{
+			{
+				[]interpreter.Value{
+					interpreter.NewSomeValueNonCopying(
+						interpreter.NewIntValueFromInt64(1),
+					),
+					interpreter.NewSomeValueNonCopying(
+						interpreter.NewIntValueFromInt64(1),
+					),
+				},
+				interpreter.NewStringValue("1"),
+			},
+			{
+				[]interpreter.Value{
+					interpreter.NilValue{},
+					interpreter.NewSomeValueNonCopying(
+						interpreter.NewIntValueFromInt64(1),
+					),
+				},
+				interpreter.NewStringValue("2"),
+			},
+			{
+				[]interpreter.Value{
+					interpreter.NewSomeValueNonCopying(
+						interpreter.NewIntValueFromInt64(1),
+					),
+					interpreter.NewSomeValueNonCopying(
+						interpreter.NewIntValueFromInt64(2),
+					),
+				},
+				interpreter.NewStringValue("3"),
+			},
+		} {
+			actual, err := inter.Invoke("test", testCase.arguments...)
+			require.NoError(t, err)
+
+			AssertValuesEqual(t, inter, testCase.expected, actual)
 		}
 	})
 }

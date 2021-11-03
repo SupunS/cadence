@@ -1,70 +1,12 @@
 
-pub struct interface SignatureVerifier  {
-
-    pub fun verify(
-        signature: [UInt8],
-        tag: String,
-        signedData: [UInt8],
-        publicKey: [UInt8],
-        signatureAlgorithm: String,
-        hashAlgorithm: String
-    ): Bool
-}
-
-pub struct interface Hasher  {
-
-    pub fun hash(
-        data: [UInt8],
-        algorithm: String
-    ): [UInt8]
-}
-
 pub contract Crypto {
 
-    pub struct SignatureAlgorithm {
-        pub let name: String
-
-        init(name: String) {
-            self.name = name
-        }
-    }
-
-    /// ECDSA_P256 is Elliptic Curve Digital Signature Algorithm (ECDSA) on the NIST P-256 curve
-    pub let ECDSA_P256: SignatureAlgorithm
-
-    /// ECDSA_Secp256k1 is Elliptic Curve Digital Signature Algorithm (ECDSA) on the secp256k1 curve
-    pub let ECDSA_Secp256k1: SignatureAlgorithm
-
-    pub struct HashAlgorithm {
-        pub let name: String
-
-        init(name: String) {
-            self.name = name
-        }
-
-        pub fun hash(_ data: [UInt8]): [UInt8] {
-            return Crypto.hash(data, algorithm: self)
-        }
-    }
-
-    /// SHA2_256 is Secure Hashing Algorithm 2 (SHA-2) with a 256-bit digest
-    pub let SHA2_256: HashAlgorithm
-
-    /// SHA3_256 is Secure Hashing Algorithm 3 (SHA-3) with a 256-bit digest
-    pub let SHA3_256: HashAlgorithm
-
     pub fun hash(_ data: [UInt8], algorithm: HashAlgorithm): [UInt8] {
-        return self.hasher.hash(data: data, algorithm: algorithm.name)
+        return algorithm.hash(data)
     }
 
-    pub struct PublicKey {
-        pub let publicKey: [UInt8]
-        pub let signatureAlgorithm: SignatureAlgorithm
-
-        init(publicKey: [UInt8], signatureAlgorithm: SignatureAlgorithm) {
-            self.publicKey = publicKey
-            self.signatureAlgorithm = signatureAlgorithm
-        }
+    pub fun hashWithTag(_ data: [UInt8], tag: String, algorithm: HashAlgorithm): [UInt8] {
+        return algorithm.hashWithTag(data, tag: tag)
     }
 
     pub struct KeyListEntry {
@@ -142,7 +84,7 @@ pub contract Crypto {
         }
 
         /// Returns true if the given signatures are valid for the given signed data
-        pub fun isValid(
+        pub fun verify(
             signatureSet: [KeyListSignature],
             signedData: [UInt8]
         ): Bool {
@@ -181,13 +123,11 @@ pub contract Crypto {
 
                 // Ensure the signature is valid
 
-                if !Crypto.signatureVerifier.verify(
+                if !key.publicKey.verify(
                     signature: signature.signature,
-                    tag: Crypto.domainSeparationTagUser,
                     signedData: signedData,
-                    publicKey: key.publicKey.publicKey,
-                    signatureAlgorithm: key.publicKey.signatureAlgorithm.name,
-                    hashAlgorithm:key.hashAlgorithm.name
+                    domainSeparationTag: Crypto.domainSeparationTagUser,
+                    hashAlgorithm:key.hashAlgorithm
                 ) {
                     return false
                 }
@@ -211,22 +151,7 @@ pub contract Crypto {
 
     priv let domainSeparationTagUser: String
 
-    priv let signatureVerifier: {SignatureVerifier}
-    priv let hasher: {Hasher}
-
-    init(signatureVerifier: {SignatureVerifier}, hasher: {Hasher}) {
-
-        self.signatureVerifier = signatureVerifier
-        self.hasher = hasher
-
-        // Initialize constants
-
-        self.ECDSA_P256 = SignatureAlgorithm(name: "ECDSA_P256")
-        self.ECDSA_Secp256k1 = SignatureAlgorithm(name: "ECDSA_Secp256k1")
-
-        self.SHA2_256 = HashAlgorithm(name: "SHA2_256")
-        self.SHA3_256 = HashAlgorithm(name: "SHA3_256")
-
-        self.domainSeparationTagUser = "user"
+    init() {
+        self.domainSeparationTagUser = "FLOW-V0.0-user"
     }
 }

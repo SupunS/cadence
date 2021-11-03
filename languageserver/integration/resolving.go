@@ -19,21 +19,16 @@
 package integration
 
 import (
-	"context"
 	"fmt"
+	"github.com/onflow/cadence"
 	"io/ioutil"
-	"path"
 
-	"github.com/onflow/cadence/runtime/ast"
+	"github.com/onflow/cadence/runtime/common"
 	"github.com/onflow/flow-go-sdk"
 )
 
-func resolveFileImport(mainPath string, location ast.StringLocation) (string, error) {
-	filename := path.Join(path.Dir(mainPath), string(location))
-
-	if filename == mainPath {
-		return "", fmt.Errorf("cannot import current file: %s", filename)
-	}
+func resolveFileImport(location common.StringLocation) (string, error) {
+	filename := string(location)
 
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -43,13 +38,62 @@ func resolveFileImport(mainPath string, location ast.StringLocation) (string, er
 	return string(data), nil
 }
 
-func (i *FlowIntegration) resolveAccountImport(location ast.AddressLocation) (string, error) {
-	accountAddr := location.ToAddress()
-
-	acct, err := i.flowClient.GetAccount(context.Background(), flow.BytesToAddress(accountAddr[:]))
+func (i *FlowIntegration) resolveAddressContractNames(address common.Address) ([]string, error) {
+	account, err := i.getAccount(address)
 	if err != nil {
-		return "", fmt.Errorf("cannot get account with address 0x%s. err: %w", accountAddr, err)
+		return nil, err
 	}
 
-	return string(acct.Code), nil
+	names := make([]string, len(account.Contracts))
+	var index int
+	for name := range account.Contracts {
+		names[index] = name
+		index++
+	}
+
+	return names, nil
+}
+
+func (i *FlowIntegration) resolveAddressImport(location common.AddressLocation) (string, error) {
+
+	account, err := i.getAccount(location.Address)
+	if err != nil {
+		return "", err
+	}
+
+	return string(account.Contracts[location.Name]), nil
+}
+
+func (i *FlowIntegration) getAccount(address common.Address) (*flow.Account, error) {
+	account, err := i.sharedServices.Accounts.Get(
+		flow.HexToAddress(address.String()),
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf(
+			"cannot get account with address %s: %w",
+			address.ShortHexWithPrefix(),
+			err,
+		)
+	}
+
+	return account, nil
+}
+
+func (i *FlowIntegration) getAccountAddress(name string) (flow.Address, error) {
+	serviceAccount, err := i.state.EmulatorServiceAccount()
+	if err != nil {
+		return flow.Address{}, err
+	}
+
+	code := makeManagerCode(scriptGetAddress, serviceAccount.Address().String())
+	args := []cadence.Value{
+		cadence.NewString(name),
+	}
+
+	result, err := i.sharedServices.Scripts.Execute(code, args, "", "")
+	if err != nil {
+		return flow.Address{}, err
+	}
+	return flow.HexToAddress(result.String()), nil
 }

@@ -52,6 +52,14 @@ func (d *FunctionDeclaration) Accept(visitor Visitor) Repr {
 	return visitor.VisitFunctionDeclaration(d)
 }
 
+func (d *FunctionDeclaration) Walk(walkChild func(Element)) {
+	// TODO: walk parameters
+	// TODO: walk return type
+	if d.FunctionBlock != nil {
+		walkChild(d.FunctionBlock)
+	}
+}
+
 func (*FunctionDeclaration) isDeclaration() {}
 func (*FunctionDeclaration) isStatement()   {}
 
@@ -74,6 +82,14 @@ func (d *FunctionDeclaration) ToExpression() *FunctionExpression {
 		FunctionBlock:        d.FunctionBlock,
 		StartPos:             d.StartPos,
 	}
+}
+
+func (d *FunctionDeclaration) DeclarationMembers() *Members {
+	return nil
+}
+
+func (d *FunctionDeclaration) DeclarationDocString() string {
+	return d.DocString
 }
 
 func (d *FunctionDeclaration) MarshalJSON() ([]byte, error) {
@@ -108,6 +124,10 @@ func (d *SpecialFunctionDeclaration) Accept(visitor Visitor) Repr {
 	return d.FunctionDeclaration.Accept(visitor)
 }
 
+func (d *SpecialFunctionDeclaration) Walk(walkChild func(Element)) {
+	d.FunctionDeclaration.Walk(walkChild)
+}
+
 func (*SpecialFunctionDeclaration) isDeclaration() {}
 func (*SpecialFunctionDeclaration) isStatement()   {}
 
@@ -121,6 +141,14 @@ func (d *SpecialFunctionDeclaration) DeclarationKind() common.DeclarationKind {
 
 func (d *SpecialFunctionDeclaration) DeclarationAccess() Access {
 	return d.FunctionDeclaration.DeclarationAccess()
+}
+
+func (d *SpecialFunctionDeclaration) DeclarationMembers() *Members {
+	return d.FunctionDeclaration.DeclarationMembers()
+}
+
+func (d *SpecialFunctionDeclaration) DeclarationDocString() string {
+	return d.FunctionDeclaration.DeclarationDocString()
 }
 
 func (d *SpecialFunctionDeclaration) MarshalJSON() ([]byte, error) {

@@ -133,7 +133,7 @@ pub contract FungibleToken {
 
         pub balance: Int
 
-        pub fun deposit(from: @Receiver) {
+        pub fun deposit(from: @{Receiver}) {
             pre {
                 from.balance > 0:
                     "Deposit balance needs to be positive!"
@@ -164,7 +164,7 @@ pub contract FungibleToken {
         // deposit takes a vault object as a parameter and adds
         // its balance to the balance of the Account's vault, then
         // destroys the sent vault because its balance has been consumed
-        pub fun deposit(from: @Receiver) {
+        pub fun deposit(from: @{Receiver}) {
             self.balance = self.balance + from.balance
             destroy from
         }
@@ -221,7 +221,9 @@ import FungibleToken from 0x42
 let newVault <- create FungibleToken.createVault(initialBalance: 10)
 ```
 
-Contracts have the implicit field `let account: Account`,
+## Account access
+
+Contracts have the implicit field `let account: AuthAccount`,
 which is the account in which the contract is deployed too.
 This gives the contract the ability to e.g. read and write to the account's storage.
 
@@ -294,7 +296,7 @@ let code = "70756220636f6e...".decodeHex()
 
 // `code` has type `[UInt8]`
 
-let signer: Account = ...
+let signer: AuthAccount = ...
 signer.contracts.add(
     name: "Test",
     code: code,
@@ -306,10 +308,9 @@ signer.contracts.add(
 
 > 🚧 Status: Updating contracts is **experimental**.
 >
-> This function only works for updates of function bodies, conditions, access modifiers, and comments.
->
-> This function does **not** support other changes, e.g. changes of function signatures (parameters, return type);
-> adding, removing, or updating the name or type of fields; updating type declarations, etc.
+> Updating contracts is currently limited to maintain data consistency.
+> Read more details on valid changes and restrictions imposed on updating contracts in the
+> [contract updatability](../contract-updatability) section.
 
 A deployed contract can be updated using the `update__experimental` function:
 
@@ -357,7 +358,7 @@ let code = "70756220636f6e...".decodeHex()
 
 // `code` has type `[UInt8]`
 
-let signer: Account = ...
+let signer: AuthAccount = ...
 signer.contracts.update__experimental(name: "Test", code: code)
 ```
 
@@ -376,7 +377,7 @@ A deployed contract can be get from an account using the `get` function:
 For example, assuming that a contract named `Test` is deployed to an account, the contract can be retrieved as follows:
 
 ```cadence
-let signer: Account = ...
+let signer: AuthAccount = ...
 let contract = signer.contracts.get(name: "Test")
 ```
 
@@ -397,7 +398,7 @@ A deployed contract can be removed from an account using the `remove` function:
 For example, assuming that a contract named `Test` is deployed to an account, the contract can be removed as follows:
 
 ```cadence
-let signer: Account = ...
+let signer: AuthAccount = ...
 let contract = signer.contracts.remove(name: "Test")
 ```
 

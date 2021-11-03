@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package interpreter
+package interpreter_test
 
 import (
 	"testing"
@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/onflow/cadence/runtime/ast"
 	"github.com/onflow/cadence/runtime/common"
 	"github.com/onflow/cadence/runtime/interpreter"
 	"github.com/onflow/cadence/runtime/sema"
@@ -65,14 +66,14 @@ func TestInterpretResourceUUID(t *testing.T) {
 		checker.ParseAndCheckOptions{
 			Options: []sema.Option{
 				sema.WithImportHandler(
-					func(checker *sema.Checker, location common.Location) (sema.Import, *sema.CheckerError) {
+					func(_ *sema.Checker, importedLocation common.Location, _ ast.Range) (sema.Import, error) {
 						assert.Equal(t,
 							ImportedLocation,
-							location,
+							importedLocation,
 						)
 
-						return sema.CheckerImport{
-							Checker: importedChecker,
+						return sema.ElaborationImport{
+							Elaboration: importedChecker.Elaboration,
 						}, nil
 					},
 				),
@@ -83,8 +84,12 @@ func TestInterpretResourceUUID(t *testing.T) {
 
 	var uuid uint64
 
+	storage := interpreter.NewInMemoryStorage()
+
 	inter, err := interpreter.NewInterpreter(
-		importingChecker,
+		interpreter.ProgramFromChecker(importingChecker),
+		importingChecker.Location,
+		interpreter.WithStorage(storage),
 		interpreter.WithUUIDHandler(
 			func() (uint64, error) {
 				defer func() { uuid++ }()
@@ -97,8 +102,15 @@ func TestInterpretResourceUUID(t *testing.T) {
 					ImportedLocation,
 					location,
 				)
-				return interpreter.ProgramImport{
-					Program: importedChecker.Program,
+
+				program := interpreter.ProgramFromChecker(importedChecker)
+				subInterpreter, err := inter.NewSubInterpreter(program, location)
+				if err != nil {
+					panic(err)
+				}
+
+				return interpreter.InterpreterImport{
+					Interpreter: subInterpreter,
 				}
 			},
 		),
@@ -116,17 +128,26 @@ func TestInterpretResourceUUID(t *testing.T) {
 	array := value.(*interpreter.ArrayValue)
 
 	const length = 2
-	require.Len(t, array.Values, length)
+
+	require.Equal(t, length, array.Count())
 
 	for i := 0; i < length; i++ {
-		element := array.Values[i]
+		element := array.Get(inter, interpreter.ReturnEmptyLocationRange, i)
 
 		require.IsType(t, &interpreter.CompositeValue{}, element)
 		res := element.(*interpreter.CompositeValue)
 
-		require.Equal(t,
+		uuidValue := res.GetMember(
+			inter,
+			interpreter.ReturnEmptyLocationRange,
+			sema.ResourceUUIDFieldName,
+		)
+
+		RequireValuesEqual(
+			t,
+			inter,
 			interpreter.UInt64Value(i),
-			res.Fields[sema.ResourceUUIDFieldName],
+			uuidValue,
 		)
 	}
 }

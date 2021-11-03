@@ -22,13 +22,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
+	"github.com/onflow/cadence/runtime/common"
 	"github.com/onflow/cadence/runtime/interpreter"
 	"github.com/onflow/cadence/runtime/sema"
+	. "github.com/onflow/cadence/runtime/tests/utils"
 )
 
 func TestInterpretToString(t *testing.T) {
+
+	t.Parallel()
 
 	for _, ty := range sema.AllIntegerTypes {
 
@@ -44,23 +46,29 @@ func TestInterpretToString(t *testing.T) {
 				),
 			)
 
-			assert.Equal(t,
+			AssertValuesEqual(
+				t,
+				inter,
 				interpreter.NewStringValue("42"),
-				inter.Globals["y"].Value,
+				inter.Globals["y"].GetValue(),
 			)
 		})
 	}
 
 	t.Run("Address", func(t *testing.T) {
 
+		t.Parallel()
+
 		inter := parseCheckAndInterpret(t, `
           let x: Address = 0x42
           let y = x.toString()
         `)
 
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.NewStringValue("0x42"),
-			inter.Globals["y"].Value,
+			inter.Globals["y"].GetValue(),
 		)
 	})
 
@@ -68,19 +76,35 @@ func TestInterpretToString(t *testing.T) {
 
 		t.Run(ty.String(), func(t *testing.T) {
 
+			var literal string
+			var expected interpreter.Value
+
+			isSigned := sema.IsSubType(ty, sema.SignedFixedPointType)
+
+			if isSigned {
+				literal = "-12.34"
+				expected = interpreter.NewStringValue("-12.34000000")
+			} else {
+				literal = "12.34"
+				expected = interpreter.NewStringValue("12.34000000")
+			}
+
 			inter := parseCheckAndInterpret(t,
 				fmt.Sprintf(
 					`
-                      let x: %s = 12.34
+                      let x: %s = %s
                       let y = x.toString()
                     `,
 					ty,
+					literal,
 				),
 			)
 
-			assert.Equal(t,
-				interpreter.NewStringValue("12.34000000"),
-				inter.Globals["y"].Value,
+			AssertValuesEqual(
+				t,
+				inter,
+				expected,
+				inter.Globals["y"].GetValue(),
 			)
 		})
 	}
@@ -88,15 +112,26 @@ func TestInterpretToString(t *testing.T) {
 
 func TestInterpretToBytes(t *testing.T) {
 
+	t.Parallel()
+
 	t.Run("Address", func(t *testing.T) {
+
+		t.Parallel()
 
 		inter := parseCheckAndInterpret(t, `
           let x: Address = 0x123456
           let y = x.toBytes()
         `)
 
-		assert.Equal(t,
-			interpreter.NewArrayValueUnownedNonCopying(
+		AssertValuesEqual(
+			t,
+			inter,
+			interpreter.NewArrayValue(
+				inter,
+				interpreter.VariableSizedStaticType{
+					Type: interpreter.PrimitiveStaticTypeUInt8,
+				},
+				common.Address{},
 				interpreter.UInt8Value(0x0),
 				interpreter.UInt8Value(0x0),
 				interpreter.UInt8Value(0x0),
@@ -106,12 +141,14 @@ func TestInterpretToBytes(t *testing.T) {
 				interpreter.UInt8Value(0x34),
 				interpreter.UInt8Value(0x56),
 			),
-			inter.Globals["y"].Value,
+			inter.Globals["y"].GetValue(),
 		)
 	})
 }
 
 func TestInterpretToBigEndianBytes(t *testing.T) {
+
+	t.Parallel()
 
 	typeTests := map[string]map[string][]byte{
 		// Int*
@@ -274,10 +311,10 @@ func TestInterpretToBigEndianBytes(t *testing.T) {
 	// Ensure the test cases are complete
 
 	for _, integerType := range sema.AllNumberTypes {
-		switch integerType.(type) {
-		case *sema.NumberType, *sema.SignedNumberType,
-			*sema.IntegerType, *sema.SignedIntegerType,
-			*sema.FixedPointType, *sema.SignedFixedPointType:
+		switch integerType {
+		case sema.NumberType, sema.SignedNumberType,
+			sema.IntegerType, sema.SignedIntegerType,
+			sema.FixedPointType, sema.SignedFixedPointType:
 			continue
 		}
 
@@ -303,9 +340,11 @@ func TestInterpretToBigEndianBytes(t *testing.T) {
 					),
 				)
 
-				assert.Equal(t,
-					interpreter.ByteSliceToByteArrayValue(expected),
-					inter.Globals["result"].Value,
+				AssertValuesEqual(
+					t,
+					inter,
+					interpreter.ByteSliceToByteArrayValue(inter, expected),
+					inter.Globals["result"].GetValue(),
 				)
 			})
 		}

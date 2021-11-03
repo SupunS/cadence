@@ -24,12 +24,47 @@ func (checker *Checker) VisitArrayExpression(expression *ast.ArrayExpression) as
 
 	// visit all elements, ensure they are all the same type
 
+	expectedType := UnwrapOptionalType(checker.expectedType)
+
+	inferType := true
+
 	var elementType Type
+	var resultType ArrayType
+
+	switch expectedType := expectedType.(type) {
+
+	case *ConstantSizedType:
+		inferType = false
+
+		elementType = expectedType.ElementType(false)
+		resultType = expectedType
+
+		literalCount := int64(len(expression.Values))
+		if expectedType.Size != literalCount {
+			checker.report(
+				&ConstantSizedArrayLiteralSizeError{
+					ExpectedSize: expectedType.Size,
+					ActualSize:   literalCount,
+					Range:        expression.Range,
+				},
+			)
+		}
+
+	case *VariableSizedType:
+		inferType = false
+		elementType = expectedType.ElementType(false)
+		resultType = expectedType
+
+	default:
+		// If there is no expected, or the expected type is not an array type,
+		// then it could either be an invalid type, or it is a super type (e.g. AnyStruct).
+		// In either case, infer the type from the expression.
+	}
 
 	argumentTypes := make([]Type, len(expression.Values))
 
 	for i, value := range expression.Values {
-		valueType := value.Accept(checker).(Type)
+		valueType := checker.VisitExpression(value, elementType)
 
 		argumentTypes[i] = valueType
 
@@ -40,28 +75,23 @@ func (checker *Checker) VisitArrayExpression(expression *ast.ArrayExpression) as
 		// TODO: find common super type?
 		if elementType == nil {
 			elementType = valueType
-		} else if !valueType.IsInvalidType() &&
-			!IsSubType(valueType, elementType) {
-
-			checker.report(
-				&TypeMismatchError{
-					ExpectedType: elementType,
-					ActualType:   valueType,
-					Range:        ast.NewRangeFromPositioned(value),
-				},
-			)
 		}
 	}
 
 	checker.Elaboration.ArrayExpressionArgumentTypes[expression] = argumentTypes
 
 	if elementType == nil {
+		// i.e: contextually expected type is not available and array has zero elements.
 		elementType = NeverType
 	}
 
-	checker.Elaboration.ArrayExpressionElementType[expression] = elementType
-
-	return &VariableSizedType{
-		Type: elementType,
+	if inferType {
+		resultType = &VariableSizedType{
+			Type: elementType,
+		}
 	}
+
+	checker.Elaboration.ArrayExpressionArrayType[expression] = resultType
+
+	return resultType
 }

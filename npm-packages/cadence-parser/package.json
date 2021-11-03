@@ -1,7 +1,7 @@
 {
   "name": "@onflow/cadence-parser",
-  "version": "0.11.0",
-  "description": "The Cadence Language Server",
+  "version": "0.19.0",
+  "description": "The Cadence parser",
   "homepage": "https://github.com/onflow/cadence",
   "repository": {
     "type": "git",
@@ -9,7 +9,7 @@
   },
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && GOARCH=wasm GOOS=js go build -o ./dist/cadence-parser.wasm ../../runtime/cmd/parse",
     "test": "jest"
   },
   "license": "Apache-2.0",

@@ -24,7 +24,7 @@ package sema
 // to user programs, i.e. can't be used in type annotations
 // for e.g. parameters, return types, fields, etc.
 //
-var StorableType = &NominalType{
+var StorableType = &SimpleType{
 	Name:          "Storable",
 	QualifiedName: "Storable",
 	TypeID:        "Storable",
@@ -39,6 +39,7 @@ var StorableType = &NominalType{
 	Storable:             true,
 	Equatable:            false,
 	ExternallyReturnable: false,
+	Importable:           false,
 	IsSuperTypeOf: func(subType Type) bool {
 		storableResults := map[*Member]bool{}
 		return subType.IsStorable(storableResults)

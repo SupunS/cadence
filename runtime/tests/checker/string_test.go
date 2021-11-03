@@ -38,8 +38,8 @@ func TestCheckCharacter(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t,
-		&sema.CharacterType{},
-		checker.GlobalValues["x"].Type,
+		sema.CharacterType,
+		RequireGlobalValue(t, checker.Elaboration, "x"),
 	)
 }
 
@@ -54,8 +54,8 @@ func TestCheckCharacterUnicodeScalar(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t,
-		&sema.CharacterType{},
-		checker.GlobalValues["x"].Type,
+		sema.CharacterType,
+		RequireGlobalValue(t, checker.Elaboration, "x"),
 	)
 }
 
@@ -70,8 +70,8 @@ func TestCheckString(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t,
-		&sema.StringType{},
-		checker.GlobalValues["x"].Type,
+		sema.StringType,
+		RequireGlobalValue(t, checker.Elaboration, "x"),
 	)
 }
 
@@ -197,35 +197,6 @@ func TestCheckStringSliceBound(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TODO: prevent invalid character literals
-// func TestCheckInvalidCharacterLiteral(t *testing.T) {
-// 	//
-// 	_, err := ParseAndCheck(t, `
-//         let x: Character = "abc"
-// 	`)
-//
-// 	errs := ExpectCheckerErrors(t, err, 1)
-//
-// 	Expect(errs[0]).
-// 		To(BeAssignableToTypeOf(&sema.TypeMismatchError{}))
-// }
-
-// TODO: prevent assignment with invalid character literal
-// func TestCheckStringIndexingAssignmentWithInvalidCharacterLiteral(t *testing.T) {
-// 	//
-// 	_, err := ParseAndCheck(t, `
-//       fun test() {
-//           let z = "abc"
-//           z[0] = "def"
-//       }
-// 	`)
-//
-// 	errs := ExpectCheckerErrors(t, err, 1)
-//
-// 	Expect(errs[0]).
-// 		To(BeAssignableToTypeOf(&sema.TypeMismatchError{}))
-// }
-
 func TestCheckStringIndexing(t *testing.T) {
 
 	t.Parallel()
@@ -271,4 +242,85 @@ func TestCheckInvalidStringIndexingAssignmentWithCharacterLiteral(t *testing.T) 
 	errs := ExpectCheckerErrors(t, err, 1)
 
 	assert.IsType(t, &sema.NotIndexingAssignableTypeError{}, errs[0])
+}
+
+func TestCheckStringFunction(t *testing.T) {
+
+	t.Parallel()
+
+	checker, err := ParseAndCheck(t, `
+        let x = String()
+	`)
+
+	require.NoError(t, err)
+
+	assert.Equal(t,
+		sema.StringType,
+		RequireGlobalValue(t, checker.Elaboration, "x"),
+	)
+}
+
+func TestCheckStringDecodeHex(t *testing.T) {
+
+	t.Parallel()
+
+	checker, err := ParseAndCheck(t, `
+        let x = "01CADE".decodeHex()
+	`)
+
+	require.NoError(t, err)
+
+	assert.Equal(t,
+		sema.ByteArrayType,
+		RequireGlobalValue(t, checker.Elaboration, "x"),
+	)
+}
+
+func TestCheckStringEncodeHex(t *testing.T) {
+
+	t.Parallel()
+
+	checker, err := ParseAndCheck(t, `
+        let x = String.encodeHex([1 as UInt8, 2, 3, 0xCA, 0xDE])
+	`)
+
+	require.NoError(t, err)
+
+	assert.Equal(t,
+		sema.StringType,
+		RequireGlobalValue(t, checker.Elaboration, "x"),
+	)
+}
+
+func TestCheckStringUtf8Field(t *testing.T) {
+
+	t.Parallel()
+
+	checker, err := ParseAndCheck(t, `
+
+      let x = "abc".utf8
+	`)
+
+	require.NoError(t, err)
+
+	assert.Equal(t,
+		sema.ByteArrayType,
+		RequireGlobalValue(t, checker.Elaboration, "x"),
+	)
+}
+
+func TestCheckStringToLower(t *testing.T) {
+
+	t.Parallel()
+
+	checker, err := ParseAndCheck(t, `
+        let x = "Abc".toLower()
+	`)
+
+	require.NoError(t, err)
+
+	assert.Equal(t,
+		sema.StringType,
+		RequireGlobalValue(t, checker.Elaboration, "x"),
+	)
 }

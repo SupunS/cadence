@@ -21,11 +21,20 @@ GOPATH ?= $(HOME)/go
 # Ensure go bin path is in path (Especially for CI)
 PATH := $(PATH):$(GOPATH)/bin
 
+COVERPKGS := $(shell go list ./... | grep -v /cmd | grep -v /runtime/test | tr "\n" "," | sed 's/,*$$//')
+
 .PHONY: test
 test:
 	# test all packages
-	GO111MODULE=on go test $(if $(JSON_OUTPUT),-json,) -parallel 8 -race ./...
+	GO111MODULE=on go test -coverprofile=coverage.txt -covermode=atomic -parallel 8 -race -coverpkg $(COVERPKGS) ./...
+	# remove coverage of empty functions from report
+	sed -i -e 's/^.* 0 0$$//' coverage.txt
 	cd ./languageserver && make test
+
+.PHONY: benchmark
+benchmark:
+	# benchmark all packages
+	GO111MODULE=on go test -bench=. ./...
 
 .PHONY: build
 build:
@@ -35,13 +44,27 @@ build:
 	go build -o ./runtime/cmd/main/main ./runtime/cmd/main
 	cd ./languageserver && make build
 
-.PHONY: install-tools
-install-tools:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ${GOPATH}/bin v1.29.0
+.PHONY: lint-github-actions
+lint-github-actions: build-linter
+	tools/golangci-lint/golangci-lint run --out-format=github-actions -v ./...
 
 .PHONY: lint
-lint:
-	golangci-lint run -v ./...
+lint: build-linter
+	tools/golangci-lint/golangci-lint run -v ./...
+
+
+.PHONY: fix-lint
+fix-lint: build-linter
+	tools/golangci-lint/golangci-lint run -v --fix ./...
+
+.PHONY: build-linter
+build-linter: tools/golangci-lint/golangci-lint tools/maprangecheck/maprangecheck.so
+
+tools/maprangecheck/maprangecheck.so:
+	(cd tools/maprangecheck && $(MAKE) plugin)
+
+tools/golangci-lint/golangci-lint:
+	(cd tools/golangci-lint && $(MAKE))
 
 .PHONY: check-headers
 check-headers:
@@ -56,3 +79,10 @@ check-tidy: generate
 	go mod tidy
 	cd languageserver; go mod tidy
 	git diff --exit-code
+
+.PHONY: release
+release:
+	@(VERSIONED_FILES="version.go \
+	npm-packages/cadence-parser/package.json \
+	npm-packages/cadence-docgen/package.json" \
+	./bump-version.sh $(bump))

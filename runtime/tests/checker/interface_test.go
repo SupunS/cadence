@@ -27,7 +27,9 @@ import (
 
 	"github.com/onflow/cadence/runtime/common"
 	"github.com/onflow/cadence/runtime/errors"
+	"github.com/onflow/cadence/runtime/parser2"
 	"github.com/onflow/cadence/runtime/sema"
+	"github.com/onflow/cadence/runtime/stdlib"
 	"github.com/onflow/cadence/runtime/tests/examples"
 	. "github.com/onflow/cadence/runtime/tests/utils"
 )
@@ -445,8 +447,8 @@ func TestCheckInvalidInterfaceConformanceIncompatibleCompositeKinds(t *testing.T
 
 				require.NotNil(t, checker)
 
-				testType := checker.GlobalTypes["Test"].Type
-				testImplType := checker.GlobalTypes["TestImpl"].Type
+				testType := RequireGlobalType(t, checker.Elaboration, "Test")
+				testImplType := RequireGlobalType(t, checker.Elaboration, "TestImpl")
 
 				assert.False(t, sema.IsSubType(testImplType, testType))
 			})
@@ -511,8 +513,8 @@ func TestCheckInvalidInterfaceConformanceUndeclared(t *testing.T) {
 
 			require.NotNil(t, checker)
 
-			testType := checker.GlobalTypes["Test"].Type
-			testImplType := checker.GlobalTypes["TestImpl"].Type
+			testType := RequireGlobalType(t, checker.Elaboration, "Test")
+			testImplType := RequireGlobalType(t, checker.Elaboration, "TestImpl")
 
 			assert.False(t, sema.IsSubType(testImplType, testType))
 		})
@@ -1849,6 +1851,69 @@ func TestCheckContractInterfaceFungibleTokenConformance(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func BenchmarkContractInterfaceFungibleToken(b *testing.B) {
+
+	const code = examples.FungibleTokenContractInterface
+
+	program, err := parser2.ParseProgram(code)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		checker, err := sema.NewChecker(
+			program,
+			TestLocation,
+			sema.WithAccessCheckMode(sema.AccessCheckModeNotSpecifiedUnrestricted),
+		)
+		if err != nil {
+			b.Fatal(err)
+		}
+		err = checker.Check()
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkCheckContractInterfaceFungibleTokenConformance(b *testing.B) {
+
+	code := examples.FungibleTokenContractInterface + "\n" + examples.ExampleFungibleTokenContract
+
+	program, err := parser2.ParseProgram(code)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	panicDeclarationOption := sema.WithPredeclaredValues(
+		stdlib.StandardLibraryFunctions{
+			stdlib.PanicFunction,
+		}.ToSemaValueDeclarations(),
+	)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		checker, err := sema.NewChecker(
+			program,
+			TestLocation,
+			sema.WithAccessCheckMode(sema.AccessCheckModeNotSpecifiedUnrestricted),
+			panicDeclarationOption,
+		)
+		if err != nil {
+			b.Fatal(err)
+		}
+		err = checker.Check()
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func TestCheckContractInterfaceFungibleTokenUse(t *testing.T) {
 
 	t.Parallel()
@@ -1895,7 +1960,7 @@ func TestCheckInvalidInterfaceUseAsTypeSuggestion(t *testing.T) {
 
 	require.IsType(t, &sema.InvalidInterfaceTypeError{}, errs[0])
 
-	iType := checker.GlobalTypes["I"].Type.(*sema.InterfaceType)
+	iType := RequireGlobalType(t, checker.Elaboration, "I").(*sema.InterfaceType)
 
 	assert.Equal(t,
 		&sema.FunctionType{
@@ -1903,7 +1968,7 @@ func TestCheckInvalidInterfaceUseAsTypeSuggestion(t *testing.T) {
 				{
 					TypeAnnotation: sema.NewTypeAnnotation(
 						&sema.RestrictedType{
-							Type: &sema.AnyStructType{},
+							Type: sema.AnyStructType,
 							Restrictions: []*sema.InterfaceType{
 								iType,
 							},
@@ -1913,9 +1978,9 @@ func TestCheckInvalidInterfaceUseAsTypeSuggestion(t *testing.T) {
 			},
 			ReturnTypeAnnotation: sema.NewTypeAnnotation(
 				&sema.DictionaryType{
-					KeyType: &sema.IntType{},
+					KeyType: sema.IntType,
 					ValueType: &sema.RestrictedType{
-						Type: &sema.AnyStructType{},
+						Type: sema.AnyStructType,
 						Restrictions: []*sema.InterfaceType{
 							iType,
 						},

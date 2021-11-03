@@ -62,9 +62,17 @@ func TestCheckInvalidDictionaryTypeKey(t *testing.T) {
       let z: {Int: Int} = {"a": 1, "b": 2}
 	`)
 
-	errs := ExpectCheckerErrors(t, err, 1)
+	errs := ExpectCheckerErrors(t, err, 2)
 
 	assert.IsType(t, &sema.TypeMismatchError{}, errs[0])
+	typeMismatchError := errs[0].(*sema.TypeMismatchError)
+	assert.Equal(t, sema.IntType, typeMismatchError.ExpectedType)
+	assert.Equal(t, sema.StringType, typeMismatchError.ActualType)
+
+	assert.IsType(t, &sema.TypeMismatchError{}, errs[1])
+	typeMismatchError = errs[1].(*sema.TypeMismatchError)
+	assert.Equal(t, sema.IntType, typeMismatchError.ExpectedType)
+	assert.Equal(t, sema.StringType, typeMismatchError.ActualType)
 }
 
 func TestCheckInvalidDictionaryTypeValue(t *testing.T) {
@@ -75,9 +83,17 @@ func TestCheckInvalidDictionaryTypeValue(t *testing.T) {
       let z: {String: String} = {"a": 1, "b": 2}
 	`)
 
-	errs := ExpectCheckerErrors(t, err, 1)
+	errs := ExpectCheckerErrors(t, err, 2)
 
 	assert.IsType(t, &sema.TypeMismatchError{}, errs[0])
+	typeMisMatchError := errs[0].(*sema.TypeMismatchError)
+	assert.Equal(t, sema.StringType, typeMisMatchError.ExpectedType)
+	assert.Equal(t, sema.IntType, typeMisMatchError.ActualType)
+
+	assert.IsType(t, &sema.TypeMismatchError{}, errs[1])
+	typeMisMatchError = errs[1].(*sema.TypeMismatchError)
+	assert.Equal(t, sema.StringType, typeMisMatchError.ExpectedType)
+	assert.Equal(t, sema.IntType, typeMisMatchError.ActualType)
 }
 
 func TestCheckInvalidDictionaryTypeSwapped(t *testing.T) {
@@ -88,9 +104,27 @@ func TestCheckInvalidDictionaryTypeSwapped(t *testing.T) {
       let z: {Int: String} = {"a": 1, "b": 2}
 	`)
 
-	errs := ExpectCheckerErrors(t, err, 1)
+	errs := ExpectCheckerErrors(t, err, 4)
 
 	assert.IsType(t, &sema.TypeMismatchError{}, errs[0])
+	typeMisMatchError := errs[0].(*sema.TypeMismatchError)
+	assert.Equal(t, sema.IntType, typeMisMatchError.ExpectedType)
+	assert.Equal(t, sema.StringType, typeMisMatchError.ActualType)
+
+	assert.IsType(t, &sema.TypeMismatchError{}, errs[1])
+	typeMisMatchError = errs[1].(*sema.TypeMismatchError)
+	assert.Equal(t, sema.StringType, typeMisMatchError.ExpectedType)
+	assert.Equal(t, sema.IntType, typeMisMatchError.ActualType)
+
+	assert.IsType(t, &sema.TypeMismatchError{}, errs[2])
+	typeMisMatchError = errs[2].(*sema.TypeMismatchError)
+	assert.Equal(t, sema.IntType, typeMisMatchError.ExpectedType)
+	assert.Equal(t, sema.StringType, typeMisMatchError.ActualType)
+
+	assert.IsType(t, &sema.TypeMismatchError{}, errs[3])
+	typeMisMatchError = errs[3].(*sema.TypeMismatchError)
+	assert.Equal(t, sema.StringType, typeMisMatchError.ExpectedType)
+	assert.Equal(t, sema.IntType, typeMisMatchError.ActualType)
 }
 
 func TestCheckInvalidDictionaryKeys(t *testing.T) {
@@ -130,9 +164,13 @@ func TestCheckDictionaryIndexingString(t *testing.T) {
 
 	require.NoError(t, err)
 
+	yType := RequireGlobalValue(t, checker.Elaboration, "y")
+
 	assert.Equal(t,
-		&sema.OptionalType{Type: &sema.IntType{}},
-		checker.GlobalValues["y"].Type,
+		&sema.OptionalType{
+			Type: sema.IntType,
+		},
+		yType,
 	)
 }
 
@@ -159,7 +197,10 @@ func TestCheckInvalidDictionaryIndexing(t *testing.T) {
 
 	errs := ExpectCheckerErrors(t, err, 1)
 
-	assert.IsType(t, &sema.NotIndexingTypeError{}, errs[0])
+	require.IsType(t, &sema.TypeMismatchError{}, errs[0])
+	typeMismatchError := errs[0].(*sema.TypeMismatchError)
+	assert.Equal(t, sema.StringType, typeMismatchError.ExpectedType)
+	assert.Equal(t, sema.BoolType, typeMismatchError.ActualType)
 }
 
 func TestCheckDictionaryIndexingAssignment(t *testing.T) {
@@ -262,9 +303,11 @@ func TestCheckDictionaryKeys(t *testing.T) {
 
 	require.NoError(t, err)
 
+	keysType := RequireGlobalValue(t, checker.Elaboration, "keys")
+
 	assert.Equal(t,
-		&sema.VariableSizedType{Type: &sema.StringType{}},
-		checker.GlobalValues["keys"].Type,
+		&sema.VariableSizedType{Type: sema.StringType},
+		keysType,
 	)
 }
 
@@ -278,9 +321,11 @@ func TestCheckDictionaryValues(t *testing.T) {
 
 	require.NoError(t, err)
 
+	valuesType := RequireGlobalValue(t, checker.Elaboration, "values")
+
 	assert.Equal(t,
-		&sema.VariableSizedType{Type: &sema.IntType{}},
-		checker.GlobalValues["values"].Type,
+		&sema.VariableSizedType{Type: sema.IntType},
+		valuesType,
 	)
 }
 
@@ -352,6 +397,70 @@ func TestCheckInvalidArrayAppendToConstantSize(t *testing.T) {
       fun test(): [Int; 3] {
           let x: [Int; 3] = [1, 2, 3]
           x.append(4)
+          return x
+      }
+    `)
+
+	errs := ExpectCheckerErrors(t, err, 1)
+
+	assert.IsType(t, &sema.NotDeclaredMemberError{}, errs[0])
+}
+
+func TestCheckArrayAppendAll(t *testing.T) {
+
+	t.Parallel()
+
+	_, err := ParseAndCheck(t, `
+	  fun test(): [Int] {
+	 	  let a = [1, 2]
+		  let b = [3, 4]
+		  a.appendAll(b)
+		  return a
+      }
+    `)
+
+	require.NoError(t, err)
+}
+
+func TestCheckInvalidArrayAppendAll(t *testing.T) {
+
+	t.Parallel()
+
+	_, err := ParseAndCheck(t, `
+	  fun test(): [Int] {
+	 	  let a = [1, 2]
+		  let b = ["a", "b"]
+		  a.appendAll(b)
+		  return a
+      }
+    `)
+
+	errs := ExpectCheckerErrors(t, err, 1)
+
+	assert.IsType(t, &sema.TypeMismatchError{}, errs[0])
+
+	_, err = ParseAndCheck(t, `
+	  fun test(): [Int] {
+	 	  let a = [1, 2]
+		  let b = 3
+		  a.appendAll(b)
+		  return a
+      }
+    `)
+
+	errs = ExpectCheckerErrors(t, err, 1)
+
+	assert.IsType(t, &sema.TypeMismatchError{}, errs[0])
+}
+
+func TestCheckInvalidArrayAppendAllOnConstantSize(t *testing.T) {
+
+	t.Parallel()
+
+	_, err := ParseAndCheck(t, `
+      fun test(): [Int; 3] {
+          let x: [Int; 3] = [1, 2, 3]
+          x.appendAll([4, 5])
           return x
       }
     `)
@@ -678,6 +787,36 @@ func TestCheckEmptyArrayCall(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestCheckDictionaryContainsKey(t *testing.T) {
+
+	t.Parallel()
+
+	_, err := ParseAndCheck(t, `
+      fun test(): Bool {
+          let x = {1: "One", 2: "Two", 3: "Three"}
+          return x.containsKey(2)
+      }
+    `)
+
+	require.NoError(t, err)
+}
+
+func TestCheckInvalidDictionaryContainsKey(t *testing.T) {
+
+	t.Parallel()
+
+	_, err := ParseAndCheck(t, `
+      fun test(): Bool {
+          let x = {1: "One", 2: "Two", 3: "Three"}
+          return x.containsKey("abc")
+      }
+    `)
+
+	errs := ExpectCheckerErrors(t, err, 1)
+
+	assert.IsType(t, &sema.TypeMismatchError{}, errs[0])
+}
+
 func TestCheckEmptyDictionary(t *testing.T) {
 
 	t.Parallel()
@@ -843,10 +982,9 @@ func TestCheckInvalidConstantSizedArrayDeclarationCountMismatchTooMany(t *testin
       let x: [Int; 2] = [1, 2, 3]
     `)
 
-	errs := ExpectCheckerErrors(t, err, 2)
+	errs := ExpectCheckerErrors(t, err, 1)
 
 	assert.IsType(t, &sema.ConstantSizedArrayLiteralSizeError{}, errs[0])
-	assert.IsType(t, &sema.TypeMismatchError{}, errs[1])
 }
 
 func TestCheckInvalidConstantSizedArrayDeclarationOutOfRangeSize(t *testing.T) {
@@ -878,11 +1016,10 @@ func TestCheckInvalidConstantSizedArrayDeclarationOutOfRangeSize(t *testing.T) {
 			),
 		)
 
-		errs := ExpectCheckerErrors(t, err, 3)
+		errs := ExpectCheckerErrors(t, err, 2)
 
 		assert.IsType(t, &sema.InvalidConstantSizedTypeSizeError{}, errs[0])
 		assert.IsType(t, &sema.ConstantSizedArrayLiteralSizeError{}, errs[1])
-		assert.IsType(t, &sema.TypeMismatchError{}, errs[2])
 	})
 }
 
@@ -903,11 +1040,10 @@ func TestCheckInvalidConstantSizedArrayDeclarationBase(t *testing.T) {
 				),
 			)
 
-			errs := ExpectCheckerErrors(t, err, 3)
+			errs := ExpectCheckerErrors(t, err, 2)
 
 			assert.IsType(t, &sema.InvalidConstantSizedTypeBaseError{}, errs[0])
 			assert.IsType(t, &sema.ConstantSizedArrayLiteralSizeError{}, errs[1])
-			assert.IsType(t, &sema.TypeMismatchError{}, errs[2])
 		})
 	}
 }
@@ -979,4 +1115,35 @@ func TestCheckDictionaryKeyTypesExpressions(t *testing.T) {
 			assert.IsType(t, &sema.InvalidDictionaryKeyTypeError{}, errs[0])
 		})
 	}
+}
+
+func TestNilAssignmentToDictionary(t *testing.T) {
+
+	t.Parallel()
+
+	t.Run("non-nillable value space", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := ParseAndCheck(t, `
+            let x: {String: Int} = {"def": 42, "abc": 23}
+            fun test() {
+                x["def"] = nil
+            }
+	    `)
+
+		require.NoError(t, err)
+	})
+
+	t.Run("nillable value space", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := ParseAndCheck(t, `
+            let x: {String: Int?} = {"def": 42, "abc": 23}
+            fun test() {
+                x["def"] = nil
+            }
+	    `)
+
+		require.NoError(t, err)
+	})
 }

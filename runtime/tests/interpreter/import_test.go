@@ -24,15 +24,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	. "github.com/onflow/cadence/runtime/tests/utils"
+
 	"github.com/onflow/cadence/runtime/ast"
 	"github.com/onflow/cadence/runtime/common"
 	"github.com/onflow/cadence/runtime/interpreter"
 	"github.com/onflow/cadence/runtime/sema"
 	"github.com/onflow/cadence/runtime/tests/checker"
-	"github.com/onflow/cadence/runtime/trampoline"
 )
 
 func TestInterpretVirtualImport(t *testing.T) {
+
+	t.Parallel()
 
 	fooType := &sema.CompositeType{
 		Location:   common.IdentifierLocation("Foo"),
@@ -40,16 +43,17 @@ func TestInterpretVirtualImport(t *testing.T) {
 		Kind:       common.CompositeKindContract,
 	}
 
-	fooType.Members = map[string]*sema.Member{
-		"bar": sema.NewPublicFunctionMember(
+	fooType.Members = sema.NewStringMemberOrderedMap()
+	fooType.Members.Set(
+		"bar",
+		sema.NewPublicFunctionMember(
 			fooType,
 			"bar",
 			&sema.FunctionType{
-				ReturnTypeAnnotation: sema.NewTypeAnnotation(&sema.UInt64Type{}),
+				ReturnTypeAnnotation: sema.NewTypeAnnotation(sema.UInt64Type),
 			},
 			"",
-		),
-	}
+		))
 
 	const code = `
        import Foo
@@ -59,7 +63,15 @@ func TestInterpretVirtualImport(t *testing.T) {
        }
     `
 
-	inter := parseCheckAndInterpretWithOptions(t,
+	valueElements := sema.NewStringImportElementOrderedMap()
+
+	valueElements.Set("Foo", sema.ImportElement{
+		DeclarationKind: common.DeclarationKindStructure,
+		Access:          ast.AccessPublic,
+		Type:            fooType,
+	})
+
+	inter, err := parseCheckAndInterpretWithOptions(t,
 		code,
 		ParseCheckAndInterpretOptions{
 			Options: []interpreter.Option{
@@ -71,50 +83,63 @@ func TestInterpretVirtualImport(t *testing.T) {
 							location,
 						)
 
+						value := interpreter.NewCompositeValue(
+							inter,
+							location,
+							"Foo",
+							common.CompositeKindContract,
+							nil,
+							common.Address{},
+						)
+
+						value.Functions = map[string]interpreter.FunctionValue{
+							"bar": interpreter.NewHostFunctionValue(
+								func(invocation interpreter.Invocation) interpreter.Value {
+									return interpreter.UInt64Value(42)
+								},
+								nil,
+							),
+						}
+
+						elaboration := sema.NewElaboration()
+						elaboration.CompositeTypes[fooType.ID()] = fooType
+
 						return interpreter.VirtualImport{
-							Globals: map[string]interpreter.Value{
-								"Foo": &interpreter.CompositeValue{
-									Location:            location,
-									QualifiedIdentifier: "Foo",
-									Kind:                common.CompositeKindContract,
-									Functions: map[string]interpreter.FunctionValue{
-										"bar": interpreter.NewHostFunctionValue(
-											func(invocation interpreter.Invocation) trampoline.Trampoline {
-												return trampoline.Done{
-													Result: interpreter.NewIntValueFromInt64(42),
-												}
-											},
-										),
-									},
+							Globals: []struct {
+								Name  string
+								Value interpreter.Value
+							}{
+								{
+									Name:  "Foo",
+									Value: value,
 								},
 							},
+							Elaboration: elaboration,
 						}
 					},
 				),
 			},
 			CheckerOptions: []sema.Option{
 				sema.WithImportHandler(
-					func(checker *sema.Checker, location common.Location) (sema.Import, *sema.CheckerError) {
+					func(_ *sema.Checker, _ common.Location, _ ast.Range) (sema.Import, error) {
+
 						return sema.VirtualImport{
-							ValueElements: map[string]sema.ImportElement{
-								"Foo": {
-									DeclarationKind: common.DeclarationKindStructure,
-									Access:          ast.AccessPublic,
-									Type:            fooType,
-								},
-							},
+							ValueElements: valueElements,
 						}, nil
 					},
 				),
 			},
 		},
 	)
+	require.NoError(t, err)
 
 	value, err := inter.Invoke("test")
 	require.NoError(t, err)
 
-	assert.Equal(t,
-		interpreter.NewIntValueFromInt64(42),
+	AssertValuesEqual(
+		t,
+		inter,
+		interpreter.UInt64Value(42),
 		value,
 	)
 }
@@ -208,9 +233,9 @@ func TestInterpretImportMultipleProgramsFromLocation(t *testing.T) {
 					},
 				),
 				sema.WithImportHandler(
-					func(checker *sema.Checker, location common.Location) (sema.Import, *sema.CheckerError) {
-						require.IsType(t, common.AddressLocation{}, location)
-						addressLocation := location.(common.AddressLocation)
+					func(checker *sema.Checker, importedLocation common.Location, _ ast.Range) (sema.Import, error) {
+						require.IsType(t, common.AddressLocation{}, importedLocation)
+						addressLocation := importedLocation.(common.AddressLocation)
 
 						assert.Equal(t, address, addressLocation.Address)
 
@@ -221,10 +246,15 @@ func TestInterpretImportMultipleProgramsFromLocation(t *testing.T) {
 							importedChecker = importedCheckerA
 						case "b":
 							importedChecker = importedCheckerB
+						default:
+							t.Errorf(
+								"invalid address location location name: %s",
+								addressLocation.Name,
+							)
 						}
 
-						return sema.CheckerImport{
-							Checker: importedChecker,
+						return sema.ElaborationImport{
+							Elaboration: importedChecker.Elaboration,
 						}, nil
 					},
 				),
@@ -233,8 +263,12 @@ func TestInterpretImportMultipleProgramsFromLocation(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	storage := interpreter.NewInMemoryStorage()
+
 	inter, err := interpreter.NewInterpreter(
-		importingChecker,
+		interpreter.ProgramFromChecker(importingChecker),
+		importingChecker.Location,
+		interpreter.WithStorage(storage),
 		interpreter.WithImportLocationHandler(
 			func(inter *interpreter.Interpreter, location common.Location) interpreter.Import {
 				require.IsType(t, common.AddressLocation{}, location)
@@ -253,8 +287,14 @@ func TestInterpretImportMultipleProgramsFromLocation(t *testing.T) {
 					return nil
 				}
 
-				return interpreter.ProgramImport{
-					Program: importedChecker.Program,
+				program := interpreter.ProgramFromChecker(importedChecker)
+				subInterpreter, err := inter.NewSubInterpreter(program, location)
+				if err != nil {
+					panic(err)
+				}
+
+				return interpreter.InterpreterImport{
+					Interpreter: subInterpreter,
 				}
 			},
 		),
@@ -267,8 +307,103 @@ func TestInterpretImportMultipleProgramsFromLocation(t *testing.T) {
 	value, err := inter.Invoke("test")
 	require.NoError(t, err)
 
-	assert.Equal(t,
+	AssertValuesEqual(
+		t,
+		inter,
 		interpreter.NewIntValueFromInt64(3),
 		value,
+	)
+}
+
+func TestInterpretResourceConstructionThroughIndirectImport(t *testing.T) {
+
+	t.Parallel()
+
+	address := common.BytesToAddress([]byte{0x1})
+
+	importedChecker, err := checker.ParseAndCheckWithOptions(t,
+		`
+          resource R {}
+        `,
+		checker.ParseAndCheckOptions{
+			Location: common.AddressLocation{
+				Address: address,
+			},
+		},
+	)
+	require.NoError(t, err)
+
+	importingChecker, err := checker.ParseAndCheckWithOptions(t,
+		`
+          import R from 0x1
+
+          fun test(createR: ((): @R)) {
+              let r <- createR()
+              destroy r
+          }
+        `,
+		checker.ParseAndCheckOptions{
+			Options: []sema.Option{
+				sema.WithImportHandler(
+					func(checker *sema.Checker, importedLocation common.Location, _ ast.Range) (sema.Import, error) {
+						require.IsType(t, common.AddressLocation{}, importedLocation)
+						addressLocation := importedLocation.(common.AddressLocation)
+
+						assert.Equal(t, address, addressLocation.Address)
+
+						return sema.ElaborationImport{
+							Elaboration: importedChecker.Elaboration,
+						}, nil
+					},
+				),
+			},
+		},
+	)
+	require.NoError(t, err)
+
+	var subInterpreter *interpreter.Interpreter
+
+	inter, err := interpreter.NewInterpreter(
+		interpreter.ProgramFromChecker(importingChecker),
+		importingChecker.Location,
+		interpreter.WithImportLocationHandler(
+			func(inter *interpreter.Interpreter, location common.Location) interpreter.Import {
+				require.IsType(t, common.AddressLocation{}, location)
+				addressLocation := location.(common.AddressLocation)
+
+				assert.Equal(t, address, addressLocation.Address)
+
+				program := interpreter.ProgramFromChecker(importedChecker)
+				var err error
+				subInterpreter, err = inter.NewSubInterpreter(program, location)
+				if err != nil {
+					panic(err)
+				}
+
+				return interpreter.InterpreterImport{
+					Interpreter: subInterpreter,
+				}
+			},
+		),
+		interpreter.WithUUIDHandler(func() (uint64, error) {
+			return 0, nil
+		}),
+	)
+	require.NoError(t, err)
+
+	err = inter.Interpret()
+	require.NoError(t, err)
+
+	rConstructor := subInterpreter.Globals["R"].GetValue()
+
+	_, err = inter.Invoke("test", rConstructor)
+	require.Error(t, err)
+
+	var resourceConstructionError interpreter.ResourceConstructionError
+	require.ErrorAs(t, err, &resourceConstructionError)
+
+	assert.Equal(t,
+		checker.RequireGlobalType(t, importedChecker.Elaboration, "R"),
+		resourceConstructionError.CompositeType,
 	)
 }

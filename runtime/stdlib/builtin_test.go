@@ -43,9 +43,15 @@ func TestAssert(t *testing.T) {
 	)
 	require.Nil(t, err)
 
+	storage := interpreter.NewInMemoryStorage()
+
 	inter, err := interpreter.NewInterpreter(
-		checker,
-		interpreter.WithPredeclaredValues(BuiltinFunctions.ToInterpreterValueDeclarations()),
+		interpreter.ProgramFromChecker(checker),
+		checker.Location,
+		interpreter.WithStorage(storage),
+		interpreter.WithPredeclaredValues(
+			BuiltinFunctions.ToInterpreterValueDeclarations(),
+		),
 	)
 	require.Nil(t, err)
 
@@ -55,18 +61,22 @@ func TestAssert(t *testing.T) {
 		interpreter.NewStringValue("oops"),
 	)
 	assert.Equal(t,
-		AssertionError{
-			Message:       "oops",
-			LocationRange: interpreter.LocationRange{},
+		interpreter.Error{
+			Err: AssertionError{
+				Message: "oops",
+			},
+			Location: utils.TestLocation,
 		},
 		err,
 	)
 
 	_, err = inter.Invoke("assert", interpreter.BoolValue(false))
 	assert.Equal(t,
-		AssertionError{
-			Message:       "",
-			LocationRange: interpreter.LocationRange{},
+		interpreter.Error{
+			Err: AssertionError{
+				Message: "",
+			},
+			Location: utils.TestLocation,
 		},
 		err)
 
@@ -92,17 +102,24 @@ func TestPanic(t *testing.T) {
 	)
 	require.Nil(t, err)
 
+	storage := interpreter.NewInMemoryStorage()
+
 	inter, err := interpreter.NewInterpreter(
-		checker,
+		interpreter.ProgramFromChecker(checker),
+		checker.Location,
+		interpreter.WithStorage(storage),
 		interpreter.WithPredeclaredValues(BuiltinFunctions.ToInterpreterValueDeclarations()),
 	)
 	require.Nil(t, err)
 
 	_, err = inter.Invoke("panic", interpreter.NewStringValue("oops"))
 	assert.Equal(t,
-		PanicError{
-			Message:       "oops",
-			LocationRange: interpreter.LocationRange{},
+		interpreter.Error{
+			Err: PanicError{
+				Message: "oops",
+			},
+			Location: utils.TestLocation,
 		},
-		err)
+		err,
+	)
 }

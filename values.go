@@ -22,11 +22,13 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/big"
+	"unicode/utf8"
 
 	"github.com/onflow/cadence/fixedpoint"
 	"github.com/onflow/cadence/runtime/common"
 	"github.com/onflow/cadence/runtime/format"
 	"github.com/onflow/cadence/runtime/interpreter"
+	"github.com/onflow/cadence/runtime/sema"
 )
 
 // Value
@@ -135,8 +137,12 @@ func (v Bool) String() string {
 
 type String string
 
-func NewString(s string) String {
-	return String(s)
+func NewString(s string) (String, error) {
+	if !utf8.ValidString(s) {
+		return "", fmt.Errorf("invalid UTF-8 in string: %s", s)
+	}
+
+	return String(s), nil
 }
 
 func (String) isValue() {}
@@ -373,9 +379,14 @@ func NewInt128(i int) Int128 {
 	return Int128{big.NewInt(int64(i))}
 }
 
-func NewInt128FromBig(i *big.Int) Int128 {
-	// TODO: check range?
-	return Int128{i}
+func NewInt128FromBig(i *big.Int) (Int128, error) {
+	if i.Cmp(sema.Int128TypeMinIntBig) < 0 {
+		return Int128{}, fmt.Errorf("value exceeds min of Int128: %s", i.String())
+	}
+	if i.Cmp(sema.Int128TypeMaxIntBig) > 0 {
+		return Int128{}, fmt.Errorf("value exceeds max of Int128: %s", i.String())
+	}
+	return Int128{i}, nil
 }
 
 func (Int128) isValue() {}
@@ -414,9 +425,14 @@ func NewInt256(i int) Int256 {
 	return Int256{big.NewInt(int64(i))}
 }
 
-func NewInt256FromBig(i *big.Int) Int256 {
-	// TODO: check range?
-	return Int256{i}
+func NewInt256FromBig(i *big.Int) (Int256, error) {
+	if i.Cmp(sema.Int256TypeMinIntBig) < 0 {
+		return Int256{}, fmt.Errorf("value exceeds min of Int256: %s", i.String())
+	}
+	if i.Cmp(sema.Int256TypeMaxIntBig) > 0 {
+		return Int256{}, fmt.Errorf("value exceeds max of Int256: %s", i.String())
+	}
+	return Int256{i}, nil
 }
 
 func (Int256) isValue() {}
@@ -455,11 +471,11 @@ func NewUInt(i uint) UInt {
 	return UInt{big.NewInt(int64(i))}
 }
 
-func NewUIntFromBig(i *big.Int) UInt {
+func NewUIntFromBig(i *big.Int) (UInt, error) {
 	if i.Sign() < 0 {
-		panic("negative input")
+		return UInt{}, fmt.Errorf("invalid negative value for UInt: %s", i.String())
 	}
-	return UInt{i}
+	return UInt{i}, nil
 }
 
 func (UInt) isValue() {}
@@ -489,6 +505,7 @@ func (v UInt) String() string {
 }
 
 // UInt8
+
 type UInt8 uint8
 
 func NewUInt8(v uint8) UInt8 {
@@ -607,12 +624,14 @@ func NewUInt128(i uint) UInt128 {
 	return UInt128{big.NewInt(int64(i))}
 }
 
-func NewUInt128FromBig(i *big.Int) UInt128 {
-	// TODO: check range?
+func NewUInt128FromBig(i *big.Int) (UInt128, error) {
 	if i.Sign() < 0 {
-		panic("negative input")
+		return UInt128{}, fmt.Errorf("invalid negative value for UInt: %s", i.String())
 	}
-	return UInt128{i}
+	if i.Cmp(sema.UInt128TypeMaxIntBig) > 0 {
+		return UInt128{}, fmt.Errorf("value exceeds max of UInt128: %s", i.String())
+	}
+	return UInt128{i}, nil
 }
 
 func (UInt128) isValue() {}
@@ -651,12 +670,14 @@ func NewUInt256(i uint) UInt256 {
 	return UInt256{big.NewInt(int64(i))}
 }
 
-func NewUInt256FromBig(i *big.Int) UInt256 {
-	// TODO: check range?
+func NewUInt256FromBig(i *big.Int) (UInt256, error) {
 	if i.Sign() < 0 {
-		panic("negative input")
+		return UInt256{}, fmt.Errorf("invalid negative value for UInt256: %s", i.String())
 	}
-	return UInt256{i}
+	if i.Cmp(sema.UInt256TypeMaxIntBig) > 0 {
+		return UInt256{}, fmt.Errorf("value exceeds max of UInt256: %s", i.String())
+	}
+	return UInt256{i}, nil
 }
 
 func (UInt256) isValue() {}
@@ -887,8 +908,8 @@ func (v UFix64) String() string {
 // Array
 
 type Array struct {
-	typ    Type
-	Values []Value
+	ArrayType ArrayType
+	Values    []Value
 }
 
 func NewArray(values []Value) Array {
@@ -898,7 +919,12 @@ func NewArray(values []Value) Array {
 func (Array) isValue() {}
 
 func (v Array) Type() Type {
-	return v.typ
+	return v.ArrayType
+}
+
+func (v Array) WithType(arrayType ArrayType) Array {
+	v.ArrayType = arrayType
+	return v
 }
 
 func (v Array) ToGoValue() interface{} {
@@ -922,8 +948,8 @@ func (v Array) String() string {
 // Dictionary
 
 type Dictionary struct {
-	typ   Type
-	Pairs []KeyValuePair
+	DictionaryType Type
+	Pairs          []KeyValuePair
 }
 
 func NewDictionary(pairs []KeyValuePair) Dictionary {
@@ -933,7 +959,12 @@ func NewDictionary(pairs []KeyValuePair) Dictionary {
 func (Dictionary) isValue() {}
 
 func (v Dictionary) Type() Type {
-	return v.typ
+	return v.DictionaryType
+}
+
+func (v Dictionary) WithType(dictionaryType DictionaryType) Dictionary {
+	v.DictionaryType = dictionaryType
+	return v
 }
 
 func (v Dictionary) ToGoValue() interface{} {
@@ -1238,4 +1269,39 @@ func (v Capability) String() string {
 		v.Address.String(),
 		v.Path.String(),
 	)
+}
+
+// Enum
+type Enum struct {
+	EnumType *EnumType
+	Fields   []Value
+}
+
+func NewEnum(fields []Value) Enum {
+	return Enum{Fields: fields}
+}
+
+func (Enum) isValue() {}
+
+func (v Enum) Type() Type {
+	return v.EnumType
+}
+
+func (v Enum) WithType(typ *EnumType) Enum {
+	v.EnumType = typ
+	return v
+}
+
+func (v Enum) ToGoValue() interface{} {
+	ret := make([]interface{}, len(v.Fields))
+
+	for i, field := range v.Fields {
+		ret[i] = field.ToGoValue()
+	}
+
+	return ret
+}
+
+func (v Enum) String() string {
+	return formatComposite(v.EnumType.ID(), v.EnumType.Fields, v.Fields)
 }

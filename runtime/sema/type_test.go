@@ -26,6 +26,7 @@ import (
 
 	"github.com/onflow/cadence/runtime/ast"
 	"github.com/onflow/cadence/runtime/common"
+	"github.com/onflow/cadence/runtime/parser2"
 )
 
 func TestConstantSizedType_String(t *testing.T) {
@@ -33,7 +34,7 @@ func TestConstantSizedType_String(t *testing.T) {
 	t.Parallel()
 
 	ty := &ConstantSizedType{
-		Type: &VariableSizedType{Type: &IntType{}},
+		Type: &VariableSizedType{Type: IntType},
 		Size: 2,
 	}
 
@@ -51,11 +52,11 @@ func TestConstantSizedType_String_OfFunctionType(t *testing.T) {
 		Type: &FunctionType{
 			Parameters: []*Parameter{
 				{
-					TypeAnnotation: NewTypeAnnotation(&Int8Type{}),
+					TypeAnnotation: NewTypeAnnotation(Int8Type),
 				},
 			},
 			ReturnTypeAnnotation: NewTypeAnnotation(
-				&Int16Type{},
+				Int16Type,
 			),
 		},
 		Size: 2,
@@ -73,7 +74,7 @@ func TestVariableSizedType_String(t *testing.T) {
 
 	ty := &VariableSizedType{
 		Type: &ConstantSizedType{
-			Type: &IntType{},
+			Type: IntType,
 			Size: 2,
 		},
 	}
@@ -92,11 +93,11 @@ func TestVariableSizedType_String_OfFunctionType(t *testing.T) {
 		Type: &FunctionType{
 			Parameters: []*Parameter{
 				{
-					TypeAnnotation: NewTypeAnnotation(&Int8Type{}),
+					TypeAnnotation: NewTypeAnnotation(Int8Type),
 				},
 			},
 			ReturnTypeAnnotation: NewTypeAnnotation(
-				&Int16Type{},
+				Int16Type,
 			),
 		},
 	}
@@ -112,7 +113,7 @@ func TestIsResourceType_AnyStructNestedInArray(t *testing.T) {
 	t.Parallel()
 
 	ty := &VariableSizedType{
-		Type: &AnyStructType{},
+		Type: AnyStructType,
 	}
 
 	assert.False(t, ty.IsResourceType())
@@ -123,7 +124,7 @@ func TestIsResourceType_AnyResourceNestedInArray(t *testing.T) {
 	t.Parallel()
 
 	ty := &VariableSizedType{
-		Type: &AnyResourceType{},
+		Type: AnyResourceType,
 	}
 
 	assert.True(t, ty.IsResourceType())
@@ -147,7 +148,7 @@ func TestIsResourceType_ResourceNestedInDictionary(t *testing.T) {
 	t.Parallel()
 
 	ty := &DictionaryType{
-		KeyType: &StringType{},
+		KeyType: StringType,
 		ValueType: &VariableSizedType{
 			Type: &CompositeType{
 				Kind: common.CompositeKindResource,
@@ -163,7 +164,7 @@ func TestIsResourceType_StructNestedInDictionary(t *testing.T) {
 	t.Parallel()
 
 	ty := &DictionaryType{
-		KeyType: &StringType{},
+		KeyType: StringType,
 		ValueType: &VariableSizedType{
 			Type: &CompositeType{
 				Kind: common.CompositeKindStructure,
@@ -434,7 +435,7 @@ func TestRestrictedType_GetMember(t *testing.T) {
 			Identifier: "R",
 			Location:   common.StringLocation("a"),
 			Fields:     []string{},
-			Members:    map[string]*Member{},
+			Members:    NewStringMemberOrderedMap(),
 		}
 		ty := &RestrictedType{
 			Type:         resourceType,
@@ -442,12 +443,12 @@ func TestRestrictedType_GetMember(t *testing.T) {
 		}
 
 		fieldName := "s"
-		resourceType.Members[fieldName] = NewPublicConstantFieldMember(
+		resourceType.Members.Set(fieldName, NewPublicConstantFieldMember(
 			ty.Type,
 			fieldName,
-			&IntType{},
+			IntType,
 			"",
-		)
+		))
 
 		actualMembers := ty.GetMembers()
 
@@ -469,7 +470,7 @@ func TestRestrictedType_GetMember(t *testing.T) {
 		interfaceType := &InterfaceType{
 			CompositeKind: common.CompositeKindResource,
 			Identifier:    "I",
-			Members:       map[string]*Member{},
+			Members:       NewStringMemberOrderedMap(),
 		}
 
 		resourceType := &CompositeType{
@@ -477,7 +478,7 @@ func TestRestrictedType_GetMember(t *testing.T) {
 			Identifier: "R",
 			Location:   common.StringLocation("a"),
 			Fields:     []string{},
-			Members:    map[string]*Member{},
+			Members:    NewStringMemberOrderedMap(),
 		}
 		restrictedType := &RestrictedType{
 			Type: resourceType,
@@ -488,20 +489,20 @@ func TestRestrictedType_GetMember(t *testing.T) {
 
 		fieldName := "s"
 
-		resourceType.Members[fieldName] = NewPublicConstantFieldMember(
+		resourceType.Members.Set(fieldName, NewPublicConstantFieldMember(
 			restrictedType.Type,
 			fieldName,
-			&IntType{},
+			IntType,
 			"",
-		)
+		))
 
 		interfaceMember := NewPublicConstantFieldMember(
 			restrictedType.Type,
 			fieldName,
-			&IntType{},
+			IntType,
 			"",
 		)
-		interfaceType.Members[fieldName] = interfaceMember
+		interfaceType.Members.Set(fieldName, interfaceMember)
 
 		actualMembers := restrictedType.GetMembers()
 
@@ -528,4 +529,176 @@ func TestBeforeType_Strings(t *testing.T) {
 		expected,
 		beforeType.QualifiedString(),
 	)
+}
+
+func TestQualifiedIdentifierCreation(t *testing.T) {
+
+	t.Run("with containers", func(t *testing.T) {
+
+		a := &CompositeType{
+			Kind:       common.CompositeKindStructure,
+			Identifier: "A",
+			Location:   common.StringLocation("a"),
+			Fields:     []string{},
+			Members:    NewStringMemberOrderedMap(),
+		}
+
+		b := &CompositeType{
+			Kind:          common.CompositeKindStructure,
+			Identifier:    "B",
+			Location:      common.StringLocation("a"),
+			Fields:        []string{},
+			Members:       NewStringMemberOrderedMap(),
+			containerType: a,
+		}
+
+		c := &CompositeType{
+			Kind:          common.CompositeKindStructure,
+			Identifier:    "C",
+			Location:      common.StringLocation("a"),
+			Fields:        []string{},
+			Members:       NewStringMemberOrderedMap(),
+			containerType: b,
+		}
+
+		identifier := qualifiedIdentifier("foo", c)
+		assert.Equal(t, "A.B.C.foo", identifier)
+	})
+
+	t.Run("without containers", func(t *testing.T) {
+		identifier := qualifiedIdentifier("foo", nil)
+		assert.Equal(t, "foo", identifier)
+	})
+
+	t.Run("public account container", func(t *testing.T) {
+		identifier := qualifiedIdentifier("foo", PublicAccountType)
+		assert.Equal(t, "PublicAccount.foo", identifier)
+	})
+}
+
+func BenchmarkQualifiedIdentifierCreation(b *testing.B) {
+
+	foo := &CompositeType{
+		Kind:       common.CompositeKindStructure,
+		Identifier: "foo",
+		Location:   common.StringLocation("a"),
+		Fields:     []string{},
+		Members:    NewStringMemberOrderedMap(),
+	}
+
+	bar := &CompositeType{
+		Kind:          common.CompositeKindStructure,
+		Identifier:    "bar",
+		Location:      common.StringLocation("a"),
+		Fields:        []string{},
+		Members:       NewStringMemberOrderedMap(),
+		containerType: foo,
+	}
+
+	b.Run("One level", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			qualifiedIdentifier("baz", nil)
+		}
+	})
+
+	b.Run("Three levels", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			qualifiedIdentifier("baz", bar)
+		}
+	})
+}
+
+func TestIdentifierCacheUpdate(t *testing.T) {
+
+	code := `
+          pub contract interface Test {
+
+              pub struct interface NestedInterface {
+                  pub fun test(): Bool
+              }
+
+              pub struct Nested: NestedInterface {}
+          }
+
+          pub contract TestImpl {
+
+              pub struct Nested {
+                  pub fun test(): Bool {
+                      return true
+                  }
+              }
+          }
+	`
+
+	program, err := parser2.ParseProgram(code)
+	require.NoError(t, err)
+
+	checker, err := NewChecker(
+		program,
+		common.StringLocation("test"),
+	)
+	require.NoError(t, err)
+
+	err = checker.Check()
+	require.NoError(t, err)
+
+	checker.typeActivations.ForEachVariableDeclaredInAndBelow(
+		0,
+		func(_ string, value *Variable) {
+			typ := value.Type
+
+			var checkIdentifiers func(t *testing.T, typ Type)
+
+			checkNestedTypes := func(nestedTypes *StringTypeOrderedMap) {
+				if nestedTypes != nil {
+					nestedTypes.Foreach(
+						func(_ string, typ Type) {
+							checkIdentifiers(t, typ)
+						},
+					)
+				}
+			}
+
+			checkIdentifiers = func(t *testing.T, typ Type) {
+				switch semaType := typ.(type) {
+				case *CompositeType:
+					cachedQualifiedID := semaType.QualifiedIdentifier()
+					cachedID := semaType.ID()
+
+					// clear cached identifiers for one level
+					semaType.cachedIdentifiers = nil
+
+					recalculatedQualifiedID := semaType.QualifiedIdentifier()
+					recalculatedID := semaType.ID()
+
+					assert.Equal(t, recalculatedQualifiedID, cachedQualifiedID)
+					assert.Equal(t, recalculatedID, cachedID)
+
+					// Recursively check for nested types
+					checkNestedTypes(semaType.nestedTypes)
+
+				case *InterfaceType:
+					cachedQualifiedID := semaType.QualifiedIdentifier()
+					cachedID := semaType.ID()
+
+					// clear cached identifiers for one level
+					semaType.cachedIdentifiers = nil
+
+					recalculatedQualifiedID := semaType.QualifiedIdentifier()
+					recalculatedID := semaType.ID()
+
+					assert.Equal(t, recalculatedQualifiedID, cachedQualifiedID)
+					assert.Equal(t, recalculatedID, cachedID)
+
+					// Recursively check for nested types
+					checkNestedTypes(semaType.nestedTypes)
+				}
+			}
+
+			checkIdentifiers(t, typ)
+		})
 }

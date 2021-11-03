@@ -103,6 +103,10 @@ func (e CheckerError) ChildErrors() []error {
 	return e.Errors
 }
 
+func (e CheckerError) ImportLocation() common.Location {
+	return e.Location
+}
+
 // SemanticError
 
 type SemanticError interface {
@@ -140,7 +144,7 @@ func (e *RedeclarationError) EndPosition() ast.Position {
 }
 
 func (e *RedeclarationError) ErrorNotes() []errors.ErrorNote {
-	if e.PreviousPos == nil {
+	if e.PreviousPos == nil || e.PreviousPos.Line < 1 {
 		return nil
 	}
 
@@ -173,6 +177,7 @@ func (n RedeclarationNote) Message() string {
 type NotDeclaredError struct {
 	ExpectedKind common.DeclarationKind
 	Name         string
+	Expression   *ast.IdentifierExpression
 	Pos          ast.Position
 }
 
@@ -217,6 +222,7 @@ func (*AssignmentToConstantError) isSemanticError() {}
 type TypeMismatchError struct {
 	ExpectedType Type
 	ActualType   Type
+	Expression   ast.Expression
 	ast.Range
 }
 
@@ -287,22 +293,6 @@ func (e *NotIndexingAssignableTypeError) Error() string {
 }
 
 func (*NotIndexingAssignableTypeError) isSemanticError() {}
-
-// NotIndexingTypeError
-
-type NotIndexingTypeError struct {
-	Type Type
-	ast.Range
-}
-
-func (e *NotIndexingTypeError) Error() string {
-	return fmt.Sprintf(
-		"cannot index with value which has type: `%s`",
-		e.Type.QualifiedString(),
-	)
-}
-
-func (*NotIndexingTypeError) isSemanticError() {}
 
 // NotEquatableTypeError
 
@@ -688,8 +678,9 @@ func (e *MissingInitializerError) EndPosition() ast.Position {
 // NotDeclaredMemberError
 
 type NotDeclaredMemberError struct {
-	Name string
-	Type Type
+	Name       string
+	Type       Type
+	Expression *ast.MemberExpression
 	ast.Range
 }
 
@@ -804,21 +795,6 @@ func (e *FunctionExpressionInConditionError) Error() string {
 }
 
 func (*FunctionExpressionInConditionError) isSemanticError() {}
-
-// InvalidReturnValueError
-
-type InvalidReturnValueError struct {
-	ast.Range
-}
-
-func (e *InvalidReturnValueError) Error() string {
-	return fmt.Sprintf(
-		"invalid return with value from function with `%s` return type",
-		VoidType,
-	)
-}
-
-func (*InvalidReturnValueError) isSemanticError() {}
 
 // MissingReturnValueError
 
@@ -951,6 +927,7 @@ type InitializerMismatch struct {
 //  use `InitializerMismatch`, `MissingMembers`, `MemberMismatches`, etc
 
 type ConformanceError struct {
+	CompositeDeclaration           *ast.CompositeDeclaration
 	CompositeType                  *CompositeType
 	InterfaceType                  *InterfaceType
 	InitializerMismatch            *InitializerMismatch
@@ -1110,8 +1087,8 @@ func (e *NotExportedError) EndPosition() ast.Position {
 // ImportedProgramError
 
 type ImportedProgramError struct {
-	CheckerError *CheckerError
-	Location     common.Location
+	Err      error
+	Location common.Location
 	ast.Range
 }
 
@@ -1127,7 +1104,7 @@ func (e *ImportedProgramError) ImportLocation() common.Location {
 }
 
 func (e *ImportedProgramError) ChildErrors() []error {
-	return e.CheckerError.Errors
+	return []error{e.Err}
 }
 
 func (*ImportedProgramError) isSemanticError() {}
@@ -2337,21 +2314,21 @@ func (e *InvalidResourceTransactionParameterError) Error() string {
 
 func (*InvalidResourceTransactionParameterError) isSemanticError() {}
 
-// InvalidNonStorableTransactionParameterTypeError
+// InvalidNonImportableTransactionParameterTypeError
 
-type InvalidNonStorableTransactionParameterTypeError struct {
+type InvalidNonImportableTransactionParameterTypeError struct {
 	Type Type
 	ast.Range
 }
 
-func (e *InvalidNonStorableTransactionParameterTypeError) Error() string {
+func (e *InvalidNonImportableTransactionParameterTypeError) Error() string {
 	return fmt.Sprintf(
-		"transaction parameter must be storable: `%s`",
+		"transaction parameter must be importable: `%s`",
 		e.Type.QualifiedString(),
 	)
 }
 
-func (*InvalidNonStorableTransactionParameterTypeError) isSemanticError() {}
+func (*InvalidNonImportableTransactionParameterTypeError) isSemanticError() {}
 
 // InvalidTransactionFieldAccessModifierError
 
@@ -2390,7 +2367,7 @@ type InvalidTransactionPrepareParameterTypeError struct {
 func (e *InvalidTransactionPrepareParameterTypeError) Error() string {
 	return fmt.Sprintf(
 		"prepare parameter must be of type `%s`, not `%s`",
-		&AuthAccountType{},
+		AuthAccountType,
 		e.Type.QualifiedString(),
 	)
 }
@@ -2729,9 +2706,9 @@ func (e *InvalidPathDomainError) Error() string {
 func (*InvalidPathDomainError) isSemanticError() {}
 
 var validPathDomainDescription = func() string {
-	words := make([]string, 0, len(common.AllPathDomainsByIdentifier))
+	words := make([]string, 0, len(common.AllPathDomains))
 
-	for domain := range common.AllPathDomainsByIdentifier {
+	for _, domain := range common.AllPathDomains {
 		words = append(words, fmt.Sprintf("`%s`", domain))
 	}
 

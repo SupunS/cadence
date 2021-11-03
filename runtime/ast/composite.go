@@ -42,6 +42,10 @@ func (d *CompositeDeclaration) Accept(visitor Visitor) Repr {
 	return visitor.VisitCompositeDeclaration(d)
 }
 
+func (d *CompositeDeclaration) Walk(walkChild func(Element)) {
+	walkDeclarations(walkChild, d.Members.declarations)
+}
+
 func (*CompositeDeclaration) isDeclaration() {}
 
 // NOTE: statement, so it can be represented in the AST,
@@ -59,6 +63,14 @@ func (d *CompositeDeclaration) DeclarationKind() common.DeclarationKind {
 
 func (d *CompositeDeclaration) DeclarationAccess() Access {
 	return d.Access
+}
+
+func (d *CompositeDeclaration) DeclarationMembers() *Members {
+	return d.Members
+}
+
+func (d *CompositeDeclaration) DeclarationDocString() string {
+	return d.DocString
 }
 
 func (d *CompositeDeclaration) MarshalJSON() ([]byte, error) {
@@ -87,6 +99,11 @@ func (d *FieldDeclaration) Accept(visitor Visitor) Repr {
 	return visitor.VisitFieldDeclaration(d)
 }
 
+func (d *FieldDeclaration) Walk(_ func(Element)) {
+	// NO-OP
+	// TODO: walk type
+}
+
 func (*FieldDeclaration) isDeclaration() {}
 
 func (d *FieldDeclaration) DeclarationIdentifier() *Identifier {
@@ -99,6 +116,14 @@ func (d *FieldDeclaration) DeclarationKind() common.DeclarationKind {
 
 func (d *FieldDeclaration) DeclarationAccess() Access {
 	return d.Access
+}
+
+func (d *FieldDeclaration) DeclarationMembers() *Members {
+	return nil
+}
+
+func (d *FieldDeclaration) DeclarationDocString() string {
+	return d.DocString
 }
 
 func (d *FieldDeclaration) MarshalJSON() ([]byte, error) {
@@ -125,6 +150,10 @@ func (d *EnumCaseDeclaration) Accept(visitor Visitor) Repr {
 	return visitor.VisitEnumCaseDeclaration(d)
 }
 
+func (*EnumCaseDeclaration) Walk(_ func(Element)) {
+	// NO-OP
+}
+
 func (*EnumCaseDeclaration) isDeclaration() {}
 
 func (d *EnumCaseDeclaration) DeclarationIdentifier() *Identifier {
@@ -145,6 +174,14 @@ func (d *EnumCaseDeclaration) StartPosition() Position {
 
 func (d *EnumCaseDeclaration) EndPosition() Position {
 	return d.Identifier.EndPosition()
+}
+
+func (d *EnumCaseDeclaration) DeclarationMembers() *Members {
+	return nil
+}
+
+func (d *EnumCaseDeclaration) DeclarationDocString() string {
+	return d.DocString
 }
 
 func (d *EnumCaseDeclaration) MarshalJSON() ([]byte, error) {

@@ -19,6 +19,7 @@
 package common
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 )
@@ -56,7 +57,19 @@ func (a *Address) SetBytes(b []byte) {
 	copy(a[AddressLength-len(b):], b)
 }
 
+// Bytes returns address without leading zeros.
+// The fast path is inlined and handles the most common
+// scenario of address having no leading zeros.
+// Otherwise, bytes() is called to trim leading zeros.
 func (a Address) Bytes() []byte {
+	if a[0] != 0 {
+		return a[:]
+	}
+	return a.bytes()
+}
+
+// bytes returns address bytes after trimming leading zeros.
+func (a *Address) bytes() []byte {
 	// Trim leading zeros
 	leadingZeros := 0
 	for _, b := range a {
@@ -72,4 +85,17 @@ func (a Address) Bytes() []byte {
 func (a Address) ShortHexWithPrefix() string {
 	hexString := fmt.Sprintf("%x", [AddressLength]byte(a))
 	return fmt.Sprintf("0x%s", strings.TrimLeft(hexString, "0"))
+}
+
+// HexToAddress converts a hex string to an Address.
+func HexToAddress(h string) (Address, error) {
+	trimmed := strings.TrimPrefix(h, "0x")
+	if len(trimmed)%2 == 1 {
+		trimmed = "0" + trimmed
+	}
+	b, err := hex.DecodeString(trimmed)
+	if err != nil {
+		return Address{}, err
+	}
+	return BytesToAddress(b), nil
 }

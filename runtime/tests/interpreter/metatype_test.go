@@ -22,12 +22,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/onflow/cadence/runtime/common"
 	"github.com/onflow/cadence/runtime/interpreter"
 	"github.com/onflow/cadence/runtime/sema"
 	"github.com/onflow/cadence/runtime/stdlib"
-	"github.com/onflow/cadence/runtime/tests/utils"
+	. "github.com/onflow/cadence/runtime/tests/utils"
 )
 
 func TestInterpretMetaTypeEquality(t *testing.T) {
@@ -42,9 +43,11 @@ func TestInterpretMetaTypeEquality(t *testing.T) {
            let result = Type<Int>() == Type<Int>()
         `)
 
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.BoolValue(true),
-			inter.Globals["result"].Value,
+			inter.Globals["result"].GetValue(),
 		)
 	})
 
@@ -56,9 +59,11 @@ func TestInterpretMetaTypeEquality(t *testing.T) {
            let result = Type<Int>() == Type<String>()
         `)
 
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.BoolValue(false),
-			inter.Globals["result"].Value,
+			inter.Globals["result"].GetValue(),
 		)
 	})
 
@@ -70,9 +75,11 @@ func TestInterpretMetaTypeEquality(t *testing.T) {
            let result = Type<Int>() == Type<Int?>()
         `)
 
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.BoolValue(false),
-			inter.Globals["result"].Value,
+			inter.Globals["result"].GetValue(),
 		)
 	})
 
@@ -84,9 +91,11 @@ func TestInterpretMetaTypeEquality(t *testing.T) {
            let result = Type<&Int>() == Type<&Int>()
         `)
 
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.BoolValue(true),
-			inter.Globals["result"].Value,
+			inter.Globals["result"].GetValue(),
 		)
 	})
 
@@ -98,9 +107,11 @@ func TestInterpretMetaTypeEquality(t *testing.T) {
            let result = Type<&Int>() == Type<&String>()
         `)
 
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.BoolValue(false),
-			inter.Globals["result"].Value,
+			inter.Globals["result"].GetValue(),
 		)
 	})
 
@@ -111,9 +122,11 @@ func TestInterpretMetaTypeEquality(t *testing.T) {
 		valueDeclarations := stdlib.StandardLibraryValues{
 			{
 				Name: "unknownType",
-				Type: &sema.MetaType{},
-				Value: interpreter.TypeValue{
-					Type: nil,
+				Type: sema.MetaType,
+				ValueFactory: func(i *interpreter.Interpreter) interpreter.Value {
+					return interpreter.TypeValue{
+						Type: nil,
+					}
 				},
 				Kind: common.DeclarationKindConstant,
 			},
@@ -122,7 +135,7 @@ func TestInterpretMetaTypeEquality(t *testing.T) {
 		semaValueDeclarations := valueDeclarations.ToSemaValueDeclarations()
 		interpreterValueDeclarations := valueDeclarations.ToInterpreterValueDeclarations()
 
-		inter := parseCheckAndInterpretWithOptions(t,
+		inter, err := parseCheckAndInterpretWithOptions(t,
 			`
               let result = Type<Int>() == unknownType
             `,
@@ -135,10 +148,13 @@ func TestInterpretMetaTypeEquality(t *testing.T) {
 				},
 			},
 		)
+		require.NoError(t, err)
 
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.BoolValue(false),
-			inter.Globals["result"].Value,
+			inter.Globals["result"].GetValue(),
 		)
 	})
 
@@ -149,17 +165,21 @@ func TestInterpretMetaTypeEquality(t *testing.T) {
 		valueDeclarations := stdlib.StandardLibraryValues{
 			{
 				Name: "unknownType1",
-				Type: &sema.MetaType{},
-				Value: interpreter.TypeValue{
-					Type: nil,
+				Type: sema.MetaType,
+				ValueFactory: func(i *interpreter.Interpreter) interpreter.Value {
+					return interpreter.TypeValue{
+						Type: nil,
+					}
 				},
 				Kind: common.DeclarationKindConstant,
 			},
 			{
 				Name: "unknownType2",
-				Type: &sema.MetaType{},
-				Value: interpreter.TypeValue{
-					Type: nil,
+				Type: sema.MetaType,
+				ValueFactory: func(i *interpreter.Interpreter) interpreter.Value {
+					return interpreter.TypeValue{
+						Type: nil,
+					}
 				},
 				Kind: common.DeclarationKindConstant,
 			},
@@ -168,7 +188,7 @@ func TestInterpretMetaTypeEquality(t *testing.T) {
 		semaValueDeclarations := valueDeclarations.ToSemaValueDeclarations()
 		interpreterValueDeclarations := valueDeclarations.ToInterpreterValueDeclarations()
 
-		inter := parseCheckAndInterpretWithOptions(t,
+		inter, err := parseCheckAndInterpretWithOptions(t,
 			`
               let result = unknownType1 == unknownType2
             `,
@@ -181,10 +201,13 @@ func TestInterpretMetaTypeEquality(t *testing.T) {
 				},
 			},
 		)
+		require.NoError(t, err)
 
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.BoolValue(false),
-			inter.Globals["result"].Value,
+			inter.Globals["result"].GetValue(),
 		)
 	})
 }
@@ -202,9 +225,11 @@ func TestInterpretMetaTypeIdentifier(t *testing.T) {
           let identifier = type.identifier
         `)
 
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.NewStringValue("[Int]"),
-			inter.Globals["identifier"].Value,
+			inter.Globals["identifier"].GetValue(),
 		)
 	})
 
@@ -219,9 +244,11 @@ func TestInterpretMetaTypeIdentifier(t *testing.T) {
           let identifier = type.identifier
         `)
 
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.NewStringValue("S.test.S"),
-			inter.Globals["identifier"].Value,
+			inter.Globals["identifier"].GetValue(),
 		)
 	})
 
@@ -232,9 +259,11 @@ func TestInterpretMetaTypeIdentifier(t *testing.T) {
 		valueDeclarations := stdlib.StandardLibraryValues{
 			{
 				Name: "unknownType",
-				Type: &sema.MetaType{},
-				Value: interpreter.TypeValue{
-					Type: nil,
+				Type: sema.MetaType,
+				ValueFactory: func(i *interpreter.Interpreter) interpreter.Value {
+					return interpreter.TypeValue{
+						Type: nil,
+					}
 				},
 				Kind: common.DeclarationKindConstant,
 			},
@@ -243,7 +272,7 @@ func TestInterpretMetaTypeIdentifier(t *testing.T) {
 		semaValueDeclarations := valueDeclarations.ToSemaValueDeclarations()
 		interpreterValueDeclarations := valueDeclarations.ToInterpreterValueDeclarations()
 
-		inter := parseCheckAndInterpretWithOptions(t,
+		inter, err := parseCheckAndInterpretWithOptions(t,
 			`
               let identifier = unknownType.identifier
             `,
@@ -256,10 +285,13 @@ func TestInterpretMetaTypeIdentifier(t *testing.T) {
 				},
 			},
 		)
+		require.NoError(t, err)
 
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.NewStringValue(""),
-			inter.Globals["identifier"].Value,
+			inter.Globals["identifier"].GetValue(),
 		)
 	})
 }
@@ -356,9 +388,11 @@ func TestInterpretIsInstance(t *testing.T) {
 	valueDeclarations := stdlib.StandardLibraryValues{
 		{
 			Name: "unknownType",
-			Type: &sema.MetaType{},
-			Value: interpreter.TypeValue{
-				Type: nil,
+			Type: sema.MetaType,
+			ValueFactory: func(i *interpreter.Interpreter) interpreter.Value {
+				return interpreter.TypeValue{
+					Type: nil,
+				}
 			},
 			Kind: common.DeclarationKindConstant,
 		},
@@ -369,7 +403,7 @@ func TestInterpretIsInstance(t *testing.T) {
 
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			inter := parseCheckAndInterpretWithOptions(t, testCase.code, ParseCheckAndInterpretOptions{
+			inter, err := parseCheckAndInterpretWithOptions(t, testCase.code, ParseCheckAndInterpretOptions{
 				CheckerOptions: []sema.Option{
 					sema.WithPredeclaredValues(semaValueDeclarations),
 				},
@@ -377,10 +411,152 @@ func TestInterpretIsInstance(t *testing.T) {
 					interpreter.WithPredeclaredValues(interpreterValueDeclarations),
 				},
 			})
+			require.NoError(t, err)
+
+			AssertValuesEqual(
+				t,
+				inter,
+				interpreter.BoolValue(testCase.result),
+				inter.Globals["result"].GetValue(),
+			)
+		})
+	}
+}
+
+func TestInterpretIsSubtype(t *testing.T) {
+
+	t.Parallel()
+
+	cases := []struct {
+		name   string
+		code   string
+		result bool
+	}{
+		{
+			name: "String is a subtype of String",
+			code: `
+              let result = Type<String>().isSubtype(of: Type<String>())
+            `,
+			result: true,
+		},
+		{
+			name: "Int is a subtype of Int",
+			code: `
+              let result = Type<Int>().isSubtype(of: Type<Int>())
+            `,
+			result: true,
+		},
+		{
+			name: "Int is a subtype of Int?",
+			code: `
+              let result = Type<Int>().isSubtype(of: Type<Int?>())
+            `,
+			result: true,
+		},
+		{
+			name: "Int? is a subtype of Int",
+			code: `
+              let result = Type<Int?>().isSubtype(of: Type<Int>())
+            `,
+			result: false,
+		},
+		{
+			name: "resource is a subtype of AnyResource",
+			code: `
+              resource R {}
+              let result = Type<@R>().isSubtype(of: Type<@AnyResource>())
+            `,
+			result: true,
+		},
+		{
+			name: "struct is a subtype of AnyStruct",
+			code: `
+              struct S {}
+              let result = Type<S>().isSubtype(of: Type<AnyStruct>())
+            `,
+			result: true,
+		},
+		{
+			name: "Int is not a subtype of resource",
+			code: `
+              resource R {}
+              let result = Type<Int>().isSubtype(of: Type<@R>())
+            `,
+			result: false,
+		},
+		{
+			name: "resource is not a subtype of String",
+			code: `
+			  resource R {}
+			  let result = Type<@R>().isSubtype(of: Type<String>())
+            `,
+			result: false,
+		},
+		{
+			name: "resource R is not a subtype of resource S",
+			code: `
+              resource R {}
+              resource S {}
+              let result = Type<@R>().isSubtype(of: Type<@S>())
+            `,
+			result: false,
+		},
+		{
+			name: "resource R is not a subtype of resource S",
+			code: `
+              resource R {}
+              resource S {}
+              let result = Type<@R>().isSubtype(of: Type<@S>())
+            `,
+			result: false,
+		},
+		{
+			name: "Int is not a subtype of an unknown type",
+			code: `
+              let result = Type<Int>().isSubtype(of: unknownType)
+            `,
+			result: false,
+		},
+		{
+			name: "unknown type is not a subtype of Int",
+			code: `
+              let result = unknownType.isSubtype(of: Type<Int>())
+            `,
+			result: false,
+		},
+	}
+
+	valueDeclarations := stdlib.StandardLibraryValues{
+		{
+			Name: "unknownType",
+			Type: sema.MetaType,
+			ValueFactory: func(_ *interpreter.Interpreter) interpreter.Value {
+				return interpreter.TypeValue{
+					Type: nil,
+				}
+			},
+			Kind: common.DeclarationKindConstant,
+		},
+	}
+
+	semaValueDeclarations := valueDeclarations.ToSemaValueDeclarations()
+	interpreterValueDeclarations := valueDeclarations.ToInterpreterValueDeclarations()
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			inter, err := parseCheckAndInterpretWithOptions(t, testCase.code, ParseCheckAndInterpretOptions{
+				CheckerOptions: []sema.Option{
+					sema.WithPredeclaredValues(semaValueDeclarations),
+				},
+				Options: []interpreter.Option{
+					interpreter.WithPredeclaredValues(interpreterValueDeclarations),
+				},
+			})
+			require.NoError(t, err)
 
 			assert.Equal(t,
 				interpreter.BoolValue(testCase.result),
-				inter.Globals["result"].Value,
+				inter.Globals["result"].GetValue(),
 			)
 		})
 	}
@@ -389,6 +565,20 @@ func TestInterpretIsInstance(t *testing.T) {
 func TestInterpretGetType(t *testing.T) {
 
 	t.Parallel()
+
+	storage := interpreter.NewInMemoryStorage()
+
+	storageAddress := common.BytesToAddress([]byte{0x42})
+	const storageKey = "test storage key"
+
+	storage.WriteValue(
+		nil,
+		storageAddress,
+		storageKey,
+		interpreter.NewSomeValueNonCopying(
+			interpreter.NewIntValueFromInt64(2),
+		),
+	)
 
 	cases := []struct {
 		name   string
@@ -422,9 +612,45 @@ func TestInterpretGetType(t *testing.T) {
               let result = r.getType()
             `,
 			result: interpreter.TypeValue{
-				Type: interpreter.CompositeStaticType{
-					Location:            utils.TestLocation,
-					QualifiedIdentifier: "R",
+				Type: interpreter.NewCompositeStaticType(TestLocation, "R"),
+			},
+		},
+		{
+			// wrapping the ephemeral reference in an optional
+			// ensures getType doesn't dereference the value,
+			// i.e. EphemeralReferenceValue.StaticType is tested
+			name: "optional ephemeral reference",
+			code: `
+              let value = 1
+              let ref = &value as auth &Int
+              let optRef: &Int? = ref
+              let result = optRef.getType()
+            `,
+			result: interpreter.TypeValue{
+				Type: interpreter.OptionalStaticType{
+					Type: interpreter.ReferenceStaticType{
+						Authorized: true,
+						Type:       interpreter.PrimitiveStaticTypeInt,
+					},
+				},
+			},
+		},
+		{
+			// wrapping the storage reference in an optional
+			// ensures getType doesn't dereference the value,
+			// i.e. StorageReferenceValue.StaticType is tested
+			name: "optional storage reference",
+			code: `
+              let ref = getStorageReference()
+              let optRef: &Int? = ref
+              let result = optRef.getType()
+            `,
+			result: interpreter.TypeValue{
+				Type: interpreter.OptionalStaticType{
+					Type: interpreter.ReferenceStaticType{
+						Authorized: true,
+						Type:       interpreter.PrimitiveStaticTypeInt,
+					},
 				},
 			},
 		},
@@ -434,19 +660,68 @@ func TestInterpretGetType(t *testing.T) {
               let result = [].getType()
             `,
 			result: interpreter.TypeValue{
-				// TODO: not yet supported
-				Type: nil,
+				Type: interpreter.VariableSizedStaticType{
+					Type: interpreter.PrimitiveStaticTypeNever,
+				},
 			},
 		},
 	}
 
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			inter := parseCheckAndInterpret(t, testCase.code)
 
-			assert.Equal(t,
+			// Inject a function that returns a storage reference value,
+			// which is borrowed as: `auth &Int`
+
+			standardLibraryFunctions :=
+				stdlib.StandardLibraryFunctions{
+					{
+						Name: "getStorageReference",
+						Type: &sema.FunctionType{
+							ReturnTypeAnnotation: sema.NewTypeAnnotation(
+								&sema.ReferenceType{
+									Authorized: true,
+									Type:       sema.IntType,
+								},
+							),
+						},
+						Function: interpreter.NewHostFunctionValue(
+							func(invocation interpreter.Invocation) interpreter.Value {
+
+								return &interpreter.StorageReferenceValue{
+									Authorized:           true,
+									TargetStorageAddress: storageAddress,
+									TargetKey:            storageKey,
+									BorrowedType:         sema.IntType,
+								}
+							},
+							nil,
+						),
+					},
+				}
+
+			valueDeclarations := standardLibraryFunctions.ToSemaValueDeclarations()
+			values := standardLibraryFunctions.ToInterpreterValueDeclarations()
+
+			inter, err := parseCheckAndInterpretWithOptions(t,
+				testCase.code,
+				ParseCheckAndInterpretOptions{
+					CheckerOptions: []sema.Option{
+						sema.WithPredeclaredValues(valueDeclarations),
+					},
+					Options: []interpreter.Option{
+						interpreter.WithStorage(storage),
+						interpreter.WithPredeclaredValues(values),
+					},
+				},
+			)
+			require.NoError(t, err)
+
+			AssertValuesEqual(
+				t,
+				inter,
 				testCase.result,
-				inter.Globals["result"].Value,
+				inter.Globals["result"].GetValue(),
 			)
 		})
 	}

@@ -26,23 +26,28 @@ import (
 )
 
 type StandardLibraryValue struct {
-	Name      string
-	Type      sema.Type
-	Value     interpreter.Value
-	Kind      common.DeclarationKind
-	Available func(common.Location) bool
+	Name         string
+	Type         sema.Type
+	DocString    string
+	ValueFactory func(*interpreter.Interpreter) interpreter.Value
+	Kind         common.DeclarationKind
+	Available    func(common.Location) bool
 }
 
 func (v StandardLibraryValue) ValueDeclarationName() string {
 	return v.Name
 }
 
-func (v StandardLibraryValue) ValueDeclarationValue() interpreter.Value {
-	return v.Value
+func (v StandardLibraryValue) ValueDeclarationValue(interpreter *interpreter.Interpreter) interpreter.Value {
+	return v.ValueFactory(interpreter)
 }
 
 func (v StandardLibraryValue) ValueDeclarationType() sema.Type {
 	return v.Type
+}
+
+func (v StandardLibraryValue) ValueDeclarationDocString() string {
+	return v.DocString
 }
 
 func (v StandardLibraryValue) ValueDeclarationKind() common.DeclarationKind {
@@ -74,16 +79,16 @@ type StandardLibraryValues []StandardLibraryValue
 
 func (values StandardLibraryValues) ToSemaValueDeclarations() []sema.ValueDeclaration {
 	valueDeclarations := make([]sema.ValueDeclaration, len(values))
-	for i, function := range values {
-		valueDeclarations[i] = function
+	for i, value := range values {
+		valueDeclarations[i] = value
 	}
 	return valueDeclarations
 }
 
 func (values StandardLibraryValues) ToInterpreterValueDeclarations() []interpreter.ValueDeclaration {
 	valueDeclarations := make([]interpreter.ValueDeclaration, len(values))
-	for i, function := range values {
-		valueDeclarations[i] = function
+	for i, value := range values {
+		valueDeclarations[i] = value
 	}
 	return valueDeclarations
 }

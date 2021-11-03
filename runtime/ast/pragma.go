@@ -39,6 +39,10 @@ func (d *PragmaDeclaration) Accept(visitor Visitor) Repr {
 	return visitor.VisitPragmaDeclaration(d)
 }
 
+func (d *PragmaDeclaration) Walk(walkChild func(Element)) {
+	walkChild(d.Expression)
+}
+
 func (d *PragmaDeclaration) DeclarationIdentifier() *Identifier {
 	return nil
 }
@@ -49,6 +53,14 @@ func (d *PragmaDeclaration) DeclarationKind() common.DeclarationKind {
 
 func (d *PragmaDeclaration) DeclarationAccess() Access {
 	return AccessNotSpecified
+}
+
+func (d *PragmaDeclaration) DeclarationMembers() *Members {
+	return nil
+}
+
+func (d *PragmaDeclaration) DeclarationDocString() string {
+	return ""
 }
 
 func (d *PragmaDeclaration) MarshalJSON() ([]byte, error) {

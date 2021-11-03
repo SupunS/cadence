@@ -41,13 +41,13 @@ func TestCheckConstantAndVariableDeclarations(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.IsType(t,
-		&sema.IntType{},
-		checker.GlobalValues["x"].Type,
+		sema.IntType,
+		RequireGlobalValue(t, checker.Elaboration, "x"),
 	)
 
 	assert.IsType(t,
-		&sema.IntType{},
-		checker.GlobalValues["y"].Type,
+		sema.IntType,
+		RequireGlobalValue(t, checker.Elaboration, "y"),
 	)
 }
 
@@ -127,10 +127,9 @@ func TestCheckInvalidUnknownDeclaration(t *testing.T) {
        }
     `)
 
-	errs := ExpectCheckerErrors(t, err, 2)
+	errs := ExpectCheckerErrors(t, err, 1)
 
 	assert.IsType(t, &sema.NotDeclaredError{}, errs[0])
-	assert.IsType(t, &sema.InvalidReturnValueError{}, errs[1])
 }
 
 func TestCheckInvalidUnknownDeclarationInGlobal(t *testing.T) {
@@ -158,21 +157,21 @@ func TestCheckInvalidUnknownDeclarationInGlobalAndUnknownType(t *testing.T) {
 
 	assert.IsType(t, &sema.NotDeclaredError{}, errs[0])
 	assert.Equal(t,
-		"y",
+		"X",
 		errs[0].(*sema.NotDeclaredError).Name,
 	)
 	assert.Equal(t,
-		common.DeclarationKindVariable,
+		common.DeclarationKindType,
 		errs[0].(*sema.NotDeclaredError).ExpectedKind,
 	)
 
 	assert.IsType(t, &sema.NotDeclaredError{}, errs[1])
 	assert.Equal(t,
-		"X",
+		"y",
 		errs[1].(*sema.NotDeclaredError).Name,
 	)
 	assert.Equal(t,
-		common.DeclarationKindType,
+		common.DeclarationKindVariable,
 		errs[1].(*sema.NotDeclaredError).ExpectedKind,
 	)
 }
@@ -388,22 +387,22 @@ func TestCheckVariableDeclarationSecondValue(t *testing.T) {
 
 	assert.IsType(t,
 		&sema.CompositeType{},
-		checker.GlobalValues["x"].Type,
+		RequireGlobalValue(t, checker.Elaboration, "x"),
 	)
 
 	assert.IsType(t,
 		&sema.CompositeType{},
-		checker.GlobalValues["y"].Type,
+		RequireGlobalValue(t, checker.Elaboration, "y"),
 	)
 
 	assert.IsType(t,
 		&sema.CompositeType{},
-		checker.GlobalValues["z"].Type,
+		RequireGlobalValue(t, checker.Elaboration, "z"),
 	)
 
 	assert.IsType(t,
 		&sema.CompositeType{},
-		checker.GlobalValues["r"].Type,
+		RequireGlobalValue(t, checker.Elaboration, "r"),
 	)
 }
 
@@ -427,22 +426,22 @@ func TestCheckVariableDeclarationSecondValueDictionary(t *testing.T) {
 
 	assert.IsType(t,
 		&sema.CompositeType{},
-		checker.GlobalValues["x"].Type,
+		RequireGlobalValue(t, checker.Elaboration, "x"),
 	)
 
 	assert.IsType(t,
 		&sema.DictionaryType{},
-		checker.GlobalValues["ys"].Type,
+		RequireGlobalValue(t, checker.Elaboration, "ys"),
 	)
 
 	assert.IsType(t,
 		&sema.OptionalType{},
-		checker.GlobalValues["z"].Type,
+		RequireGlobalValue(t, checker.Elaboration, "z"),
 	)
 
 	assert.IsType(t,
 		&sema.OptionalType{},
-		checker.GlobalValues["r"].Type,
+		RequireGlobalValue(t, checker.Elaboration, "r"),
 	)
 }
 

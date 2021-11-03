@@ -24,11 +24,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	. "github.com/onflow/cadence/runtime/tests/utils"
+
 	"github.com/onflow/cadence/runtime/common"
 	"github.com/onflow/cadence/runtime/interpreter"
 )
 
 func TestInterpretEnum(t *testing.T) {
+
+	t.Parallel()
 
 	inter := parseCheckAndInterpret(t, `
       enum E: Int64 {
@@ -38,12 +42,14 @@ func TestInterpretEnum(t *testing.T) {
     `)
 
 	assert.IsType(t,
-		interpreter.HostFunctionValue{},
-		inter.Globals["E"].Value,
+		&interpreter.HostFunctionValue{},
+		inter.Globals["E"].GetValue(),
 	)
 }
 
 func TestInterpretEnumCaseUse(t *testing.T) {
+
+	t.Parallel()
 
 	inter := parseCheckAndInterpret(t, `
       enum E: Int64 {
@@ -55,7 +61,7 @@ func TestInterpretEnumCaseUse(t *testing.T) {
       let b = E.b
     `)
 
-	a := inter.Globals["a"].Value
+	a := inter.Globals["a"].GetValue()
 	require.IsType(t,
 		&interpreter.CompositeValue{},
 		a,
@@ -66,7 +72,7 @@ func TestInterpretEnumCaseUse(t *testing.T) {
 		a.(*interpreter.CompositeValue).Kind,
 	)
 
-	b := inter.Globals["b"].Value
+	b := inter.Globals["b"].GetValue()
 	require.IsType(t,
 		&interpreter.CompositeValue{},
 		b,
@@ -80,6 +86,8 @@ func TestInterpretEnumCaseUse(t *testing.T) {
 
 func TestInterpretEnumCaseRawValue(t *testing.T) {
 
+	t.Parallel()
+
 	inter := parseCheckAndInterpret(t, `
       enum E: Int64 {
           case a
@@ -90,18 +98,24 @@ func TestInterpretEnumCaseRawValue(t *testing.T) {
       let b = E.b.rawValue
     `)
 
-	require.Equal(t,
+	RequireValuesEqual(
+		t,
+		inter,
 		interpreter.Int64Value(0),
-		inter.Globals["a"].Value,
+		inter.Globals["a"].GetValue(),
 	)
 
-	require.Equal(t,
+	RequireValuesEqual(
+		t,
+		inter,
 		interpreter.Int64Value(1),
-		inter.Globals["b"].Value,
+		inter.Globals["b"].GetValue(),
 	)
 }
 
 func TestInterpretEnumCaseEquality(t *testing.T) {
+
+	t.Parallel()
 
 	inter := parseCheckAndInterpret(t, `
       enum E: Int64 {
@@ -116,17 +130,26 @@ func TestInterpretEnumCaseEquality(t *testing.T) {
       ]
     `)
 
-	require.Equal(t,
-		interpreter.NewArrayValueUnownedNonCopying(
+	RequireValuesEqual(
+		t,
+		inter,
+		interpreter.NewArrayValue(
+			inter,
+			interpreter.VariableSizedStaticType{
+				Type: interpreter.PrimitiveStaticTypeBool,
+			},
+			common.Address{},
 			interpreter.BoolValue(true),
 			interpreter.BoolValue(true),
 			interpreter.BoolValue(true),
 		),
-		inter.Globals["res"].Value,
+		inter.Globals["res"].GetValue(),
 	)
 }
 
 func TestInterpretEnumConstructor(t *testing.T) {
+
+	t.Parallel()
 
 	inter := parseCheckAndInterpret(t, `
       enum E: Int64 {
@@ -142,18 +165,27 @@ func TestInterpretEnumConstructor(t *testing.T) {
       ]
     `)
 
-	require.Equal(t,
-		interpreter.NewArrayValueUnownedNonCopying(
+	RequireValuesEqual(
+		t,
+		inter,
+		interpreter.NewArrayValue(
+			inter,
+			interpreter.VariableSizedStaticType{
+				Type: interpreter.PrimitiveStaticTypeBool,
+			},
+			common.Address{},
 			interpreter.BoolValue(true),
 			interpreter.BoolValue(true),
 			interpreter.BoolValue(true),
 			interpreter.BoolValue(true),
 		),
-		inter.Globals["res"].Value,
+		inter.Globals["res"].GetValue(),
 	)
 }
 
 func TestInterpretEnumInstance(t *testing.T) {
+
+	t.Parallel()
 
 	inter := parseCheckAndInterpret(t, `
       enum E: Int64 {
@@ -167,11 +199,69 @@ func TestInterpretEnumInstance(t *testing.T) {
       ]
     `)
 
-	require.Equal(t,
-		interpreter.NewArrayValueUnownedNonCopying(
+	RequireValuesEqual(
+		t,
+		inter,
+		interpreter.NewArrayValue(
+			inter,
+			interpreter.VariableSizedStaticType{
+				Type: interpreter.PrimitiveStaticTypeBool,
+			},
+			common.Address{},
 			interpreter.BoolValue(true),
 			interpreter.BoolValue(true),
 		),
-		inter.Globals["res"].Value,
+		inter.Globals["res"].GetValue(),
+	)
+}
+
+func TestInterpretEnumInContract(t *testing.T) {
+
+	t.Parallel()
+
+	inter, err := parseCheckAndInterpretWithOptions(t,
+		`
+          contract C {
+              enum E: UInt8 {
+                  pub case a
+                  pub case b
+              }
+
+              var e: E
+
+              init() {
+                  self.e = E.a
+              }
+          }
+        `,
+		ParseCheckAndInterpretOptions{
+			Options: []interpreter.Option{
+				makeContractValueHandler(nil, nil, nil),
+			},
+		},
+	)
+	require.NoError(t, err)
+
+	c := inter.Globals["C"].GetValue()
+	require.IsType(t, &interpreter.CompositeValue{}, c)
+	contract := c.(*interpreter.CompositeValue)
+
+	eValue := contract.GetField(inter, interpreter.ReturnEmptyLocationRange, "e")
+	require.NotNil(t, eValue)
+
+	require.IsType(t, &interpreter.CompositeValue{}, eValue)
+	enumCase := eValue.(*interpreter.CompositeValue)
+
+	rawValue := enumCase.GetMember(
+		inter,
+		interpreter.ReturnEmptyLocationRange,
+		"rawValue",
+	)
+
+	RequireValuesEqual(
+		t,
+		inter,
+		interpreter.UInt8Value(0),
+		rawValue,
 	)
 }

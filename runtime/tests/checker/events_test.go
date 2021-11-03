@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/onflow/cadence/runtime/ast"
 	"github.com/onflow/cadence/runtime/common"
 	"github.com/onflow/cadence/runtime/errors"
 	"github.com/onflow/cadence/runtime/tests/utils"
@@ -96,11 +97,11 @@ func TestCheckEventDeclaration(t *testing.T) {
 
 		validTypes := append(
 			[]sema.Type{
-				&sema.StringType{},
-				&sema.CharacterType{},
-				&sema.BoolType{},
+				sema.StringType,
+				sema.CharacterType,
+				sema.BoolType,
 				&sema.AddressType{},
-				&sema.MetaType{},
+				sema.MetaType,
 				sema.PathType,
 				sema.StoragePathType,
 				sema.PublicPathType,
@@ -118,7 +119,7 @@ func TestCheckEventDeclaration(t *testing.T) {
 				&sema.VariableSizedType{Type: ty},
 				&sema.ConstantSizedType{Type: ty},
 				&sema.DictionaryType{
-					KeyType:   &sema.StringType{},
+					KeyType:   sema.StringType,
 					ValueType: ty,
 				},
 			)
@@ -127,7 +128,7 @@ func TestCheckEventDeclaration(t *testing.T) {
 				tests = append(tests,
 					&sema.DictionaryType{
 						KeyType:   ty,
-						ValueType: &sema.StringType{},
+						ValueType: sema.StringType,
 					},
 				)
 			}
@@ -149,6 +150,24 @@ func TestCheckEventDeclaration(t *testing.T) {
 				require.NoError(t, err)
 			})
 		}
+	})
+
+	t.Run("recursive", func(t *testing.T) {
+
+		t.Parallel()
+
+		_, err := ParseAndCheck(t, `
+          event E(recursive: Recursive)
+
+          struct Recursive {
+              let children: [Recursive]
+              init() {
+                  self.children = []
+              }
+          }
+		`)
+
+		require.NoError(t, err)
 	})
 
 	t.Run("RedeclaredEvent", func(t *testing.T) {
@@ -248,9 +267,9 @@ func TestCheckEmitEvent(t *testing.T) {
 			ParseAndCheckOptions{
 				Options: []sema.Option{
 					sema.WithImportHandler(
-						func(checker *sema.Checker, location common.Location) (sema.Import, *sema.CheckerError) {
-							return sema.CheckerImport{
-								Checker: importedChecker,
+						func(_ *sema.Checker, _ common.Location, _ ast.Range) (sema.Import, error) {
+							return sema.ElaborationImport{
+								Elaboration: importedChecker.Elaboration,
 							}, nil
 						},
 					),

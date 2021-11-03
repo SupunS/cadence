@@ -19,46 +19,87 @@
 package runtime
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/onflow/cadence/runtime/ast"
+	"github.com/onflow/cadence/runtime/cmd"
 	"github.com/onflow/cadence/runtime/common"
 	"github.com/onflow/cadence/runtime/errors"
 	"github.com/onflow/cadence/runtime/interpreter"
 	"github.com/onflow/cadence/runtime/parser2"
 	"github.com/onflow/cadence/runtime/sema"
 	"github.com/onflow/cadence/runtime/stdlib"
-	"github.com/onflow/cadence/runtime/trampoline"
 )
 
 type REPL struct {
 	checker  *sema.Checker
 	inter    *interpreter.Interpreter
-	onError  func(error)
+	onError  func(err error, location common.Location, codes map[common.LocationID]string)
 	onResult func(interpreter.Value)
+	codes    map[common.LocationID]string
 }
 
-func NewREPL(onError func(error), onResult func(interpreter.Value), checkerOptions []sema.Option) (*REPL, error) {
+func NewREPL(
+	onError func(err error, location common.Location, codes map[common.LocationID]string),
+	onResult func(interpreter.Value),
+	checkerOptions []sema.Option,
+) (*REPL, error) {
 
 	valueDeclarations := append(
 		stdlib.FlowBuiltInFunctions(stdlib.DefaultFlowBuiltinImpls()),
 		stdlib.BuiltinFunctions...,
 	)
 
+	checkers := map[common.LocationID]*sema.Checker{}
+	codes := map[common.LocationID]string{}
+
+	var newChecker func(program *ast.Program, location common.Location) (*sema.Checker, error)
+
 	checkerOptions = append(
 		[]sema.Option{
 			sema.WithPredeclaredValues(valueDeclarations.ToSemaValueDeclarations()),
 			sema.WithPredeclaredTypes(typeDeclarations),
 			sema.WithAccessCheckMode(sema.AccessCheckModeNotSpecifiedUnrestricted),
+			sema.WithImportHandler(
+				func(checker *sema.Checker, importedLocation common.Location, _ ast.Range) (sema.Import, error) {
+					stringLocation, ok := importedLocation.(common.StringLocation)
+
+					if !ok {
+						return nil, &sema.CheckerError{
+							Location: checker.Location,
+							Codes:    codes,
+							Errors: []error{
+								fmt.Errorf("cannot import `%s`. only files are supported", importedLocation),
+							},
+						}
+					}
+
+					importedChecker, ok := checkers[importedLocation.ID()]
+					if !ok {
+						importedProgram, _ := cmd.PrepareProgramFromFile(stringLocation, codes)
+						importedChecker, _ = newChecker(importedProgram, importedLocation)
+						checkers[importedLocation.ID()] = importedChecker
+					}
+
+					return sema.ElaborationImport{
+						Elaboration: importedChecker.Elaboration,
+					}, nil
+				},
+			),
 		},
 		checkerOptions...,
 	)
 
-	checker, err := sema.NewChecker(
-		nil,
-		common.REPLLocation{},
-		checkerOptions...,
-	)
+	newChecker = func(program *ast.Program, location common.Location) (*sema.Checker, error) {
+		return sema.NewChecker(
+			program,
+			common.REPLLocation{},
+			checkerOptions...,
+		)
+	}
+
+	checker, err := newChecker(nil, common.REPLLocation{})
 	if err != nil {
 		return nil, err
 	}
@@ -67,8 +108,12 @@ func NewREPL(onError func(error), onResult func(interpreter.Value), checkerOptio
 
 	var uuid uint64
 
+	storage := interpreter.NewInMemoryStorage()
+
 	inter, err := interpreter.NewInterpreter(
-		checker,
+		interpreter.ProgramFromChecker(checker),
+		checker.Location,
+		interpreter.WithStorage(storage),
 		interpreter.WithPredeclaredValues(values),
 		interpreter.WithUUIDHandler(func() (uint64, error) {
 			defer func() { uuid++ }()
@@ -84,23 +129,24 @@ func NewREPL(onError func(error), onResult func(interpreter.Value), checkerOptio
 		inter:    inter,
 		onError:  onError,
 		onResult: onResult,
+		codes:    codes,
 	}
 	return repl, nil
 }
 
-func (r *REPL) handleCheckerError(code string) bool {
+func (r *REPL) handleCheckerError() bool {
 	err := r.checker.CheckerError()
 	if err == nil {
 		return true
 	}
 	if r.onError != nil {
-		r.onError(err)
+		r.onError(err, r.checker.Location, r.codes)
 	}
 	return false
 }
 
 func (r *REPL) execute(element ast.Element) {
-	result := trampoline.Run(element.Accept(r.inter).(trampoline.Trampoline))
+	result := element.Accept(r.inter)
 	expStatementRes, ok := result.(interpreter.ExpressionStatementResult)
 	if !ok {
 		return
@@ -113,7 +159,8 @@ func (r *REPL) execute(element ast.Element) {
 
 func (r *REPL) check(element ast.Element, code string) bool {
 	element.Accept(r.checker)
-	return r.handleCheckerError(code)
+	r.codes[r.checker.Location.ID()] = code
+	return r.handleCheckerError()
 }
 
 func (r *REPL) Accept(code string) (inputIsComplete bool) {
@@ -135,7 +182,7 @@ func (r *REPL) Accept(code string) (inputIsComplete bool) {
 	}
 
 	if err != nil {
-		r.onError(err)
+		r.onError(err, r.checker.Location, r.codes)
 		return
 	}
 
@@ -146,9 +193,7 @@ func (r *REPL) Accept(code string) (inputIsComplete bool) {
 
 		switch typedElement := element.(type) {
 		case ast.Declaration:
-			program := &ast.Program{
-				Declarations: []ast.Declaration{typedElement},
-			}
+			program := ast.NewProgram([]ast.Declaration{typedElement})
 
 			if !r.check(program, code) {
 				return
@@ -180,14 +225,17 @@ type REPLSuggestion struct {
 func (r *REPL) Suggestions() (result []REPLSuggestion) {
 	names := map[string]string{}
 
-	for name, variable := range r.checker.GlobalValues {
+	r.checker.Elaboration.GlobalValues.Foreach(func(name string, variable *sema.Variable) {
 		if names[name] != "" {
-			continue
+			return
 		}
 		names[name] = variable.Type.String()
-	}
+	})
 
-	for name, description := range names {
+	// Iterating over the dictionary of names is safe,
+	// as the suggested entries are sorted afterwards
+
+	for name, description := range names { //nolint:maprangecheck
 		result = append(result, REPLSuggestion{
 			Name:        name,
 			Description: description,

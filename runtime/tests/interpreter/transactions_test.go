@@ -24,11 +24,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	. "github.com/onflow/cadence/runtime/tests/utils"
+
 	"github.com/onflow/cadence/runtime/ast"
-	"github.com/onflow/cadence/runtime/errors"
 	"github.com/onflow/cadence/runtime/interpreter"
-	"github.com/onflow/cadence/runtime/tests/utils"
-	"github.com/onflow/cadence/runtime/trampoline"
 )
 
 func TestInterpretTransactions(t *testing.T) {
@@ -107,9 +106,12 @@ func TestInterpretTransactions(t *testing.T) {
 		err := inter.InvokeTransaction(0)
 
 		var conditionErr interpreter.ConditionError
-		utils.RequireErrorAs(t, err, &conditionErr)
+		require.ErrorAs(t, err, &conditionErr)
 
-		assert.Equal(t, conditionErr.ConditionKind, ast.ConditionKindPre)
+		assert.Equal(t,
+			ast.ConditionKindPre,
+			conditionErr.ConditionKind,
+		)
 	})
 
 	t.Run("PostConditions", func(t *testing.T) {
@@ -159,9 +161,12 @@ func TestInterpretTransactions(t *testing.T) {
 		err := inter.InvokeTransaction(0)
 
 		var conditionErr interpreter.ConditionError
-		utils.RequireErrorAs(t, err, &conditionErr)
+		require.ErrorAs(t, err, &conditionErr)
 
-		assert.Equal(t, conditionErr.ConditionKind, ast.ConditionKindPost)
+		assert.Equal(t,
+			ast.ConditionKindPost,
+			conditionErr.ConditionKind,
+		)
 	})
 
 	t.Run("MultipleTransactions", func(t *testing.T) {
@@ -203,10 +208,6 @@ func TestInterpretTransactions(t *testing.T) {
 		assert.IsType(t, interpreter.ArgumentCountError{}, err)
 	})
 
-	panicFunction := interpreter.NewHostFunctionValue(func(invocation interpreter.Invocation) trampoline.Trampoline {
-		panic(errors.NewUnreachableError())
-	})
-
 	t.Run("TooManyArguments", func(t *testing.T) {
 		inter := parseCheckAndInterpret(t, `
           transaction {
@@ -220,25 +221,11 @@ func TestInterpretTransactions(t *testing.T) {
           }
         `)
 
-		signer1 := interpreter.NewAuthAccountValue(
+		signer1 := newTestAuthAccountValue(
 			interpreter.AddressValue{0, 0, 0, 0, 0, 0, 0, 1},
-			func(interpreter *interpreter.Interpreter) interpreter.UInt64Value {
-				return 0
-			},
-			returnZero,
-			panicFunction,
-			panicFunction,
-			interpreter.AuthAccountContractsValue{},
 		)
-		signer2 := interpreter.NewAuthAccountValue(
+		signer2 := newTestAuthAccountValue(
 			interpreter.AddressValue{0, 0, 0, 0, 0, 0, 0, 2},
-			func(interpreter *interpreter.Interpreter) interpreter.UInt64Value {
-				return 0
-			},
-			returnZero,
-			panicFunction,
-			panicFunction,
-			interpreter.AuthAccountContractsValue{},
 		)
 
 		// first transaction
@@ -265,40 +252,35 @@ func TestInterpretTransactions(t *testing.T) {
           }
         `)
 
-		transactionArguments := []interpreter.Value{
+		arguments := []interpreter.Value{
 			interpreter.NewIntValueFromInt64(1),
 			interpreter.BoolValue(true),
 		}
 
 		prepareArguments := []interpreter.Value{
-			interpreter.NewAuthAccountValue(
+			newTestAuthAccountValue(
 				interpreter.AddressValue{},
-				func(interpreter *interpreter.Interpreter) interpreter.UInt64Value {
-					return 0
-				},
-				returnZero,
-				panicFunction,
-				panicFunction,
-				interpreter.AuthAccountContractsValue{},
 			),
 		}
 
-		arguments := append(transactionArguments, prepareArguments...)
+		arguments = append(arguments, prepareArguments...)
 
 		err := inter.InvokeTransaction(0, arguments...)
 		assert.NoError(t, err)
 
-		values := inter.Globals["values"].Value
+		values := inter.Globals["values"].GetValue()
 
-		require.IsType(t, values, &interpreter.ArrayValue{})
+		require.IsType(t, &interpreter.ArrayValue{}, values)
 
-		assert.Equal(t,
+		AssertValueSlicesEqual(
+			t,
+			inter,
 			[]interpreter.Value{
 				interpreter.AddressValue{},
 				interpreter.BoolValue(true),
 				interpreter.NewIntValueFromInt64(1),
 			},
-			values.(*interpreter.ArrayValue).Values,
+			arrayElements(inter, values.(*interpreter.ArrayValue)),
 		)
 	})
 

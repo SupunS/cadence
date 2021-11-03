@@ -29,13 +29,28 @@ type TransactionDeclaration struct {
 	Fields         []*FieldDeclaration
 	Prepare        *SpecialFunctionDeclaration
 	PreConditions  *Conditions
-	PostConditions *Conditions
 	Execute        *SpecialFunctionDeclaration
+	PostConditions *Conditions
+	DocString      string
 	Range
 }
 
 func (d *TransactionDeclaration) Accept(visitor Visitor) Repr {
 	return visitor.VisitTransactionDeclaration(d)
+}
+
+func (d *TransactionDeclaration) Walk(walkChild func(Element)) {
+	// TODO: walk parameters
+	for _, declaration := range d.Fields {
+		walkChild(declaration)
+	}
+	if d.Prepare != nil {
+		walkChild(d.Prepare)
+	}
+	if d.Execute != nil {
+		walkChild(d.Execute)
+	}
+	// TODO: walk pre and post-conditions
 }
 
 func (*TransactionDeclaration) isDeclaration() {}
@@ -51,6 +66,14 @@ func (d *TransactionDeclaration) DeclarationKind() common.DeclarationKind {
 
 func (d *TransactionDeclaration) DeclarationAccess() Access {
 	return AccessNotSpecified
+}
+
+func (d *TransactionDeclaration) DeclarationMembers() *Members {
+	return nil
+}
+
+func (d *TransactionDeclaration) DeclarationDocString() string {
+	return ""
 }
 
 func (d *TransactionDeclaration) MarshalJSON() ([]byte, error) {

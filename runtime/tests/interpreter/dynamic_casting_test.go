@@ -31,7 +31,7 @@ import (
 	"github.com/onflow/cadence/runtime/interpreter"
 	"github.com/onflow/cadence/runtime/sema"
 	"github.com/onflow/cadence/runtime/stdlib"
-	"github.com/onflow/cadence/runtime/tests/utils"
+	. "github.com/onflow/cadence/runtime/tests/utils"
 )
 
 // dynamic casting operation -> returns optional
@@ -51,26 +51,26 @@ func TestInterpretDynamicCastingNumber(t *testing.T) {
 	}
 
 	tests := []test{
-		{&sema.IntType{}, "42", interpreter.NewIntValueFromInt64(42)},
-		{&sema.UIntType{}, "42", interpreter.NewUIntValueFromUint64(42)},
-		{&sema.Int8Type{}, "42", interpreter.Int8Value(42)},
-		{&sema.Int16Type{}, "42", interpreter.Int16Value(42)},
-		{&sema.Int32Type{}, "42", interpreter.Int32Value(42)},
-		{&sema.Int64Type{}, "42", interpreter.Int64Value(42)},
-		{&sema.Int128Type{}, "42", interpreter.NewInt128ValueFromInt64(42)},
-		{&sema.Int256Type{}, "42", interpreter.NewInt256ValueFromInt64(42)},
-		{&sema.UInt8Type{}, "42", interpreter.UInt8Value(42)},
-		{&sema.UInt16Type{}, "42", interpreter.UInt16Value(42)},
-		{&sema.UInt32Type{}, "42", interpreter.UInt32Value(42)},
-		{&sema.UInt64Type{}, "42", interpreter.UInt64Value(42)},
-		{&sema.UInt128Type{}, "42", interpreter.NewUInt128ValueFromUint64(42)},
-		{&sema.UInt256Type{}, "42", interpreter.NewUInt256ValueFromUint64(42)},
-		{&sema.Word8Type{}, "42", interpreter.Word8Value(42)},
-		{&sema.Word16Type{}, "42", interpreter.Word16Value(42)},
-		{&sema.Word32Type{}, "42", interpreter.Word32Value(42)},
-		{&sema.Word64Type{}, "42", interpreter.Word64Value(42)},
-		{&sema.Fix64Type{}, "1.23", interpreter.Fix64Value(123000000)},
-		{&sema.UFix64Type{}, "1.23", interpreter.UFix64Value(123000000)},
+		{sema.IntType, "42", interpreter.NewIntValueFromInt64(42)},
+		{sema.UIntType, "42", interpreter.NewUIntValueFromUint64(42)},
+		{sema.Int8Type, "42", interpreter.Int8Value(42)},
+		{sema.Int16Type, "42", interpreter.Int16Value(42)},
+		{sema.Int32Type, "42", interpreter.Int32Value(42)},
+		{sema.Int64Type, "42", interpreter.Int64Value(42)},
+		{sema.Int128Type, "42", interpreter.NewInt128ValueFromInt64(42)},
+		{sema.Int256Type, "42", interpreter.NewInt256ValueFromInt64(42)},
+		{sema.UInt8Type, "42", interpreter.UInt8Value(42)},
+		{sema.UInt16Type, "42", interpreter.UInt16Value(42)},
+		{sema.UInt32Type, "42", interpreter.UInt32Value(42)},
+		{sema.UInt64Type, "42", interpreter.UInt64Value(42)},
+		{sema.UInt128Type, "42", interpreter.NewUInt128ValueFromUint64(42)},
+		{sema.UInt256Type, "42", interpreter.NewUInt256ValueFromUint64(42)},
+		{sema.Word8Type, "42", interpreter.Word8Value(42)},
+		{sema.Word16Type, "42", interpreter.Word16Value(42)},
+		{sema.Word32Type, "42", interpreter.Word32Value(42)},
+		{sema.Word64Type, "42", interpreter.Word64Value(42)},
+		{sema.Fix64Type, "1.23", interpreter.Fix64Value(123000000)},
+		{sema.UFix64Type, "1.23", interpreter.UFix64Value(123000000)},
 	}
 
 	for operation, returnsOptional := range dynamicCastingOperations {
@@ -82,7 +82,7 @@ func TestInterpretDynamicCastingNumber(t *testing.T) {
 				t.Run(test.ty.String(), func(t *testing.T) {
 
 					types := []sema.Type{
-						&sema.AnyStructType{},
+						sema.AnyStructType,
 						test.ty,
 					}
 					for _, fromType := range types {
@@ -105,28 +105,34 @@ func TestInterpretDynamicCastingNumber(t *testing.T) {
 									),
 								)
 
-								assert.Equal(t,
+								AssertValuesEqual(
+									t,
+									inter,
 									test.expected,
-									inter.Globals["x"].Value,
+									inter.Globals["x"].GetValue(),
 								)
 
-								assert.Equal(t,
+								AssertValuesEqual(
+									t,
+									inter,
 									test.expected,
-									inter.Globals["y"].Value,
+									inter.Globals["y"].GetValue(),
 								)
 
-								assert.Equal(t,
-									interpreter.NewSomeValueOwningNonCopying(
+								AssertValuesEqual(
+									t,
+									inter,
+									interpreter.NewSomeValueNonCopying(
 										test.expected,
 									),
-									inter.Globals["z"].Value,
+									inter.Globals["z"].GetValue(),
 								)
 							})
 						}
 
 						for _, otherType := range []sema.Type{
-							&sema.BoolType{},
-							&sema.StringType{},
+							sema.BoolType,
+							sema.StringType,
 							sema.VoidType,
 						} {
 
@@ -153,12 +159,14 @@ func TestInterpretDynamicCastingNumber(t *testing.T) {
 
 								if returnsOptional {
 									require.NoError(t, err)
-									assert.Equal(t,
+									AssertValuesEqual(
+										t,
+										inter,
 										interpreter.NilValue{},
 										result,
 									)
 								} else {
-									utils.RequireErrorAs(t, err, &interpreter.TypeMismatchError{})
+									require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
 								}
 							})
 						}
@@ -174,7 +182,7 @@ func TestInterpretDynamicCastingVoid(t *testing.T) {
 	t.Parallel()
 
 	types := []sema.Type{
-		&sema.AnyStructType{},
+		sema.AnyStructType,
 		sema.VoidType,
 	}
 
@@ -201,24 +209,28 @@ func TestInterpretDynamicCastingVoid(t *testing.T) {
 							),
 						)
 
-						assert.Equal(t,
+						AssertValuesEqual(
+							t,
+							inter,
 							interpreter.VoidValue{},
-							inter.Globals["x"].Value,
+							inter.Globals["x"].GetValue(),
 						)
 
-						assert.Equal(t,
-							interpreter.NewSomeValueOwningNonCopying(
+						AssertValuesEqual(
+							t,
+							inter,
+							interpreter.NewSomeValueNonCopying(
 								interpreter.VoidValue{},
 							),
-							inter.Globals["y"].Value,
+							inter.Globals["y"].GetValue(),
 						)
 					})
 				}
 
 				for _, otherType := range []sema.Type{
-					&sema.BoolType{},
-					&sema.StringType{},
-					&sema.IntType{},
+					sema.BoolType,
+					sema.StringType,
+					sema.IntType,
 				} {
 
 					t.Run(fmt.Sprintf("invalid: from %s to %s", fromType, otherType), func(t *testing.T) {
@@ -243,12 +255,14 @@ func TestInterpretDynamicCastingVoid(t *testing.T) {
 
 						if returnsOptional {
 							require.NoError(t, err)
-							assert.Equal(t,
+							AssertValuesEqual(
+								t,
+								inter,
 								interpreter.NilValue{},
 								result,
 							)
 						} else {
-							utils.RequireErrorAs(t, err, &interpreter.TypeMismatchError{})
+							require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
 						}
 					})
 				}
@@ -262,8 +276,8 @@ func TestInterpretDynamicCastingString(t *testing.T) {
 	t.Parallel()
 
 	types := []sema.Type{
-		&sema.AnyStructType{},
-		&sema.StringType{},
+		sema.AnyStructType,
+		sema.StringType,
 	}
 
 	for operation, returnsOptional := range dynamicCastingOperations {
@@ -287,24 +301,28 @@ func TestInterpretDynamicCastingString(t *testing.T) {
 							),
 						)
 
-						assert.Equal(t,
+						AssertValuesEqual(
+							t,
+							inter,
 							interpreter.NewStringValue("test"),
-							inter.Globals["x"].Value,
+							inter.Globals["x"].GetValue(),
 						)
 
-						assert.Equal(t,
-							interpreter.NewSomeValueOwningNonCopying(
+						AssertValuesEqual(
+							t,
+							inter,
+							interpreter.NewSomeValueNonCopying(
 								interpreter.NewStringValue("test"),
 							),
-							inter.Globals["y"].Value,
+							inter.Globals["y"].GetValue(),
 						)
 					})
 				}
 
 				for _, otherType := range []sema.Type{
-					&sema.BoolType{},
+					sema.BoolType,
 					sema.VoidType,
-					&sema.IntType{},
+					sema.IntType,
 				} {
 
 					t.Run(fmt.Sprintf("invalid: from %s to %s", fromType, otherType), func(t *testing.T) {
@@ -328,12 +346,14 @@ func TestInterpretDynamicCastingString(t *testing.T) {
 
 						if returnsOptional {
 							require.NoError(t, err)
-							assert.Equal(t,
+							AssertValuesEqual(
+								t,
+								inter,
 								interpreter.NilValue{},
 								result,
 							)
 						} else {
-							utils.RequireErrorAs(t, err, &interpreter.TypeMismatchError{})
+							require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
 						}
 					})
 				}
@@ -347,8 +367,8 @@ func TestInterpretDynamicCastingBool(t *testing.T) {
 	t.Parallel()
 
 	types := []sema.Type{
-		&sema.AnyStructType{},
-		&sema.BoolType{},
+		sema.AnyStructType,
+		sema.BoolType,
 	}
 
 	for operation, returnsOptional := range dynamicCastingOperations {
@@ -372,24 +392,28 @@ func TestInterpretDynamicCastingBool(t *testing.T) {
 							),
 						)
 
-						assert.Equal(t,
+						AssertValuesEqual(
+							t,
+							inter,
 							interpreter.BoolValue(true),
-							inter.Globals["x"].Value,
+							inter.Globals["x"].GetValue(),
 						)
 
-						assert.Equal(t,
-							interpreter.NewSomeValueOwningNonCopying(
+						AssertValuesEqual(
+							t,
+							inter,
+							interpreter.NewSomeValueNonCopying(
 								interpreter.BoolValue(true),
 							),
-							inter.Globals["y"].Value,
+							inter.Globals["y"].GetValue(),
 						)
 					})
 				}
 
 				for _, otherType := range []sema.Type{
-					&sema.StringType{},
+					sema.StringType,
 					sema.VoidType,
-					&sema.IntType{},
+					sema.IntType,
 				} {
 
 					t.Run(fmt.Sprintf("invalid: from %s to %s", fromType, otherType), func(t *testing.T) {
@@ -413,12 +437,14 @@ func TestInterpretDynamicCastingBool(t *testing.T) {
 
 						if returnsOptional {
 							require.NoError(t, err)
-							assert.Equal(t,
+							AssertValuesEqual(
+								t,
+								inter,
 								interpreter.NilValue{},
 								result,
 							)
 						} else {
-							utils.RequireErrorAs(t, err, &interpreter.TypeMismatchError{})
+							require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
 						}
 					})
 				}
@@ -432,7 +458,7 @@ func TestInterpretDynamicCastingAddress(t *testing.T) {
 	t.Parallel()
 
 	types := []sema.Type{
-		&sema.AnyStructType{},
+		sema.AnyStructType,
 		&sema.AddressType{},
 	}
 
@@ -461,25 +487,29 @@ func TestInterpretDynamicCastingAddress(t *testing.T) {
 						addressValue := interpreter.AddressValue{
 							0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1,
 						}
-						assert.Equal(t,
+						AssertValuesEqual(
+							t,
+							inter,
 							addressValue,
-							inter.Globals["y"].Value,
+							inter.Globals["y"].GetValue(),
 						)
 
-						assert.Equal(t,
-							interpreter.NewSomeValueOwningNonCopying(
+						AssertValuesEqual(
+							t,
+							inter,
+							interpreter.NewSomeValueNonCopying(
 								addressValue,
 							),
-							inter.Globals["z"].Value,
+							inter.Globals["z"].GetValue(),
 						)
 					})
 				}
 
 				for _, otherType := range []sema.Type{
-					&sema.StringType{},
+					sema.StringType,
 					sema.VoidType,
-					&sema.IntType{},
-					&sema.BoolType{},
+					sema.IntType,
+					sema.BoolType,
 				} {
 
 					t.Run(fmt.Sprintf("invalid: from %s to %s", fromType, otherType), func(t *testing.T) {
@@ -503,12 +533,14 @@ func TestInterpretDynamicCastingAddress(t *testing.T) {
 
 						if returnsOptional {
 							require.NoError(t, err)
-							assert.Equal(t,
+							AssertValuesEqual(
+								t,
+								inter,
 								interpreter.NilValue{},
 								result,
 							)
 						} else {
-							utils.RequireErrorAs(t, err, &interpreter.TypeMismatchError{})
+							require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
 						}
 					})
 				}
@@ -551,17 +583,17 @@ func TestInterpretDynamicCastingStruct(t *testing.T) {
 
 						assert.IsType(t,
 							&interpreter.CompositeValue{},
-							inter.Globals["x"].Value,
+							inter.Globals["x"].GetValue(),
 						)
 
 						require.IsType(t,
 							&interpreter.SomeValue{},
-							inter.Globals["y"].Value,
+							inter.Globals["y"].GetValue(),
 						)
 
 						require.IsType(t,
 							&interpreter.CompositeValue{},
-							inter.Globals["y"].Value.(*interpreter.SomeValue).Value,
+							inter.Globals["y"].GetValue().(*interpreter.SomeValue).Value,
 						)
 					})
 				}
@@ -590,20 +622,22 @@ func TestInterpretDynamicCastingStruct(t *testing.T) {
 
 					if returnsOptional {
 						require.NoError(t, err)
-						assert.Equal(t,
+						AssertValuesEqual(
+							t,
+							inter,
 							interpreter.NilValue{},
 							result,
 						)
 					} else {
-						utils.RequireErrorAs(t, err, &interpreter.TypeMismatchError{})
+						require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
 					}
 				})
 
 				for _, otherType := range []sema.Type{
-					&sema.StringType{},
+					sema.StringType,
 					sema.VoidType,
-					&sema.IntType{},
-					&sema.BoolType{},
+					sema.IntType,
+					sema.BoolType,
 				} {
 
 					t.Run(fmt.Sprintf("invalid: from %s to %s", fromType, otherType), func(t *testing.T) {
@@ -629,12 +663,14 @@ func TestInterpretDynamicCastingStruct(t *testing.T) {
 
 						if returnsOptional {
 							require.NoError(t, err)
-							assert.Equal(t,
+							AssertValuesEqual(
+								t,
+								inter,
 								interpreter.NilValue{},
 								result,
 							)
 						} else {
-							utils.RequireErrorAs(t, err, &interpreter.TypeMismatchError{})
+							require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
 						}
 					})
 				}
@@ -741,7 +777,7 @@ func testResourceCastInvalid(t *testing.T, types, fromType, targetType string, o
 		)
 
 	case ast.OperationForceCast:
-		utils.RequireErrorAs(t, err, &interpreter.TypeMismatchError{})
+		require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
 
 	default:
 		panic(errors.NewUnreachableError())
@@ -888,7 +924,7 @@ func testStructCastInvalid(t *testing.T, types, fromType, targetType string, ope
 		)
 
 	case ast.OperationForceCast:
-		utils.RequireErrorAs(t, err, &interpreter.TypeMismatchError{})
+		require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
 
 	default:
 		panic(errors.NewUnreachableError())
@@ -1004,9 +1040,9 @@ func TestInterpretDynamicCastingSome(t *testing.T) {
 	t.Parallel()
 
 	types := []sema.Type{
-		&sema.OptionalType{Type: &sema.IntType{}},
-		&sema.OptionalType{Type: &sema.AnyStructType{}},
-		&sema.AnyStructType{},
+		&sema.OptionalType{Type: sema.IntType},
+		&sema.OptionalType{Type: sema.AnyStructType},
+		sema.AnyStructType,
 	}
 
 	for operation, returnsOptional := range dynamicCastingOperations {
@@ -1031,28 +1067,34 @@ func TestInterpretDynamicCastingSome(t *testing.T) {
 							),
 						)
 
-						expectedValue := interpreter.NewSomeValueOwningNonCopying(
+						expectedValue := interpreter.NewSomeValueNonCopying(
 							interpreter.NewIntValueFromInt64(42),
 						)
 
-						assert.Equal(t,
+						AssertValuesEqual(
+							t,
+							inter,
 							expectedValue,
-							inter.Globals["y"].Value,
+							inter.Globals["y"].GetValue(),
 						)
 
-						if _, ok := targetType.(*sema.AnyStructType); ok && !returnsOptional {
+						if targetType == sema.AnyStructType && !returnsOptional {
 
-							assert.Equal(t,
+							AssertValuesEqual(
+								t,
+								inter,
 								expectedValue,
-								inter.Globals["z"].Value,
+								inter.Globals["z"].GetValue(),
 							)
 
 						} else {
-							assert.Equal(t,
-								interpreter.NewSomeValueOwningNonCopying(
+							AssertValuesEqual(
+								t,
+								inter,
+								interpreter.NewSomeValueNonCopying(
 									expectedValue,
 								),
-								inter.Globals["z"].Value,
+								inter.Globals["z"].GetValue(),
 							)
 						}
 
@@ -1060,9 +1102,9 @@ func TestInterpretDynamicCastingSome(t *testing.T) {
 				}
 
 				for _, otherType := range []sema.Type{
-					&sema.OptionalType{Type: &sema.StringType{}},
+					&sema.OptionalType{Type: sema.StringType},
 					&sema.OptionalType{Type: sema.VoidType},
-					&sema.OptionalType{Type: &sema.BoolType{}},
+					&sema.OptionalType{Type: sema.BoolType},
 				} {
 
 					t.Run(fmt.Sprintf("invalid: from %s to %s", fromType, otherType), func(t *testing.T) {
@@ -1085,12 +1127,14 @@ func TestInterpretDynamicCastingSome(t *testing.T) {
 
 						if returnsOptional {
 							require.NoError(t, err)
-							assert.Equal(t,
+							AssertValuesEqual(
+								t,
+								inter,
 								interpreter.NilValue{},
 								result,
 							)
 						} else {
-							utils.RequireErrorAs(t, err, &interpreter.TypeMismatchError{})
+							require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
 						}
 					})
 				}
@@ -1104,9 +1148,9 @@ func TestInterpretDynamicCastingArray(t *testing.T) {
 	t.Parallel()
 
 	types := []sema.Type{
-		&sema.VariableSizedType{Type: &sema.IntType{}},
-		&sema.VariableSizedType{Type: &sema.AnyStructType{}},
-		&sema.AnyStructType{},
+		&sema.VariableSizedType{Type: sema.IntType},
+		&sema.VariableSizedType{Type: sema.AnyStructType},
+		sema.AnyStructType,
 	}
 
 	for operation, returnsOptional := range dynamicCastingOperations {
@@ -1121,8 +1165,9 @@ func TestInterpretDynamicCastingArray(t *testing.T) {
 						inter := parseCheckAndInterpret(t,
 							fmt.Sprintf(
 								`
-                                  let x: %[1]s = [42]
-                                  let y: %[2]s? = x %[3]s %[2]s
+                                  let x: [Int] = [42]
+                                  let y: %[1]s = x
+                                  let z: %[2]s? = y %[3]s %[2]s
                                 `,
 								fromType,
 								targetType,
@@ -1130,28 +1175,42 @@ func TestInterpretDynamicCastingArray(t *testing.T) {
 							),
 						)
 
-						expectedValue := interpreter.NewArrayValueUnownedNonCopying(
+						expectedElements := []interpreter.Value{
 							interpreter.NewIntValueFromInt64(42),
+						}
+
+						yValue := inter.Globals["y"].GetValue()
+						require.IsType(t, yValue, &interpreter.ArrayValue{})
+						yArray := yValue.(*interpreter.ArrayValue)
+
+						AssertValueSlicesEqual(
+							t,
+							inter,
+							expectedElements,
+							arrayElements(inter, yArray),
 						)
 
-						assert.Equal(t,
-							expectedValue,
-							inter.Globals["x"].Value,
-						)
+						zValue := inter.Globals["z"].GetValue()
+						require.IsType(t, zValue, &interpreter.SomeValue{})
+						zSome := zValue.(*interpreter.SomeValue)
 
-						assert.Equal(t,
-							interpreter.NewSomeValueOwningNonCopying(
-								expectedValue,
-							),
-							inter.Globals["y"].Value,
+						innerValue := zSome.Value
+						require.IsType(t, innerValue, &interpreter.ArrayValue{})
+						innerArray := innerValue.(*interpreter.ArrayValue)
+
+						AssertValueSlicesEqual(
+							t,
+							inter,
+							expectedElements,
+							arrayElements(inter, innerArray),
 						)
 					})
 				}
 
 				for _, otherType := range []sema.Type{
-					&sema.StringType{},
+					sema.StringType,
 					sema.VoidType,
-					&sema.BoolType{},
+					sema.BoolType,
 				} {
 
 					t.Run(fmt.Sprintf("invalid: from %s to %s", fromType, otherType), func(t *testing.T) {
@@ -1174,16 +1233,50 @@ func TestInterpretDynamicCastingArray(t *testing.T) {
 
 						if returnsOptional {
 							require.NoError(t, err)
-							assert.Equal(t,
+							AssertValuesEqual(
+								t,
+								inter,
 								interpreter.NilValue{},
 								result,
 							)
 						} else {
-							utils.RequireErrorAs(t, err, &interpreter.TypeMismatchError{})
+							require.Error(t, err)
+							require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
 						}
 					})
 				}
 			}
+
+			t.Run("invalid upcast", func(t *testing.T) {
+
+				inter := parseCheckAndInterpret(t,
+					fmt.Sprintf(
+						`
+		                  fun test(): [Int]? {
+		                      let x: [AnyStruct] = []
+		                      return x %s [Int]
+		                  }
+		                `,
+						operation.Symbol(),
+					),
+				)
+
+				result, err := inter.Invoke("test")
+
+				if returnsOptional {
+					require.NoError(t, err)
+					AssertValuesEqual(
+						t,
+						inter,
+
+						interpreter.NilValue{},
+						result,
+					)
+				} else {
+					require.Error(t, err)
+					require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
+				}
+			})
 		})
 	}
 }
@@ -1194,12 +1287,12 @@ func TestInterpretDynamicCastingDictionary(t *testing.T) {
 
 	types := []sema.Type{
 		&sema.DictionaryType{
-			KeyType:   &sema.StringType{},
-			ValueType: &sema.IntType{},
+			KeyType:   sema.StringType,
+			ValueType: sema.IntType,
 		},
 		&sema.DictionaryType{
-			KeyType:   &sema.StringType{},
-			ValueType: &sema.AnyStructType{},
+			KeyType:   sema.StringType,
+			ValueType: sema.AnyStructType,
 		},
 	}
 
@@ -1225,28 +1318,37 @@ func TestInterpretDynamicCastingDictionary(t *testing.T) {
 							),
 						)
 
-						expectedValue := interpreter.NewDictionaryValueUnownedNonCopying(
+						expectedDictionary := interpreter.NewDictionaryValue(
+							inter,
+							interpreter.DictionaryStaticType{
+								KeyType:   interpreter.PrimitiveStaticTypeString,
+								ValueType: interpreter.PrimitiveStaticTypeInt,
+							},
 							interpreter.NewStringValue("test"), interpreter.NewIntValueFromInt64(42),
-						).Copy()
-
-						assert.Equal(t,
-							expectedValue,
-							inter.Globals["y"].Value,
 						)
 
-						assert.Equal(t,
-							interpreter.NewSomeValueOwningNonCopying(
-								expectedValue,
+						AssertValuesEqual(
+							t,
+							inter,
+							expectedDictionary,
+							inter.Globals["y"].GetValue(),
+						)
+
+						AssertValuesEqual(
+							t,
+							inter,
+							interpreter.NewSomeValueNonCopying(
+								expectedDictionary,
 							),
-							inter.Globals["z"].Value,
+							inter.Globals["z"].GetValue(),
 						)
 					})
 				}
 
 				for _, otherType := range []sema.Type{
-					&sema.StringType{},
+					sema.StringType,
 					sema.VoidType,
-					&sema.BoolType{},
+					sema.BoolType,
 				} {
 
 					t.Run(fmt.Sprintf("invalid: from %s to %s", fromType, otherType), func(t *testing.T) {
@@ -1270,16 +1372,49 @@ func TestInterpretDynamicCastingDictionary(t *testing.T) {
 
 						if returnsOptional {
 							require.NoError(t, err)
-							assert.Equal(t,
+							AssertValuesEqual(
+								t,
+								inter,
 								interpreter.NilValue{},
 								result,
 							)
 						} else {
-							utils.RequireErrorAs(t, err, &interpreter.TypeMismatchError{})
+							require.Error(t, err)
+							require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
 						}
 					})
 				}
 			}
+
+			t.Run("invalid upcast", func(t *testing.T) {
+
+				inter := parseCheckAndInterpret(t,
+					fmt.Sprintf(
+						`
+		                  fun test(): {Int: String}? {
+		                      let x: {Int: AnyStruct} = {}
+		                      return x %s {Int: String}
+		                  }
+		                `,
+						operation.Symbol(),
+					),
+				)
+
+				result, err := inter.Invoke("test")
+
+				if returnsOptional {
+					require.NoError(t, err)
+					AssertValuesEqual(
+						t,
+						inter,
+						interpreter.NilValue{},
+						result,
+					)
+				} else {
+					require.Error(t, err)
+					require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
+				}
+			})
 		})
 	}
 }
@@ -2134,7 +2269,6 @@ func testReferenceCastValid(t *testing.T, types, fromType, targetType string, op
 	)
 
 	value, err := inter.Invoke("test")
-
 	require.NoError(t, err)
 
 	switch operation {
@@ -2182,7 +2316,7 @@ func testReferenceCastInvalid(t *testing.T, types, fromType, targetType string, 
 		)
 
 	case ast.OperationForceCast:
-		utils.RequireErrorAs(t, err, &interpreter.TypeMismatchError{})
+		require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
 
 	default:
 		panic(errors.NewUnreachableError())
@@ -3304,7 +3438,7 @@ func TestInterpretDynamicCastingCapability(t *testing.T) {
 	t.Parallel()
 
 	structType := &sema.CompositeType{
-		Location:   utils.TestLocation,
+		Location:   TestLocation,
 		Identifier: "S",
 		Kind:       common.CompositeKindStructure,
 	}
@@ -3317,14 +3451,14 @@ func TestInterpretDynamicCastingCapability(t *testing.T) {
 		},
 		&sema.CapabilityType{
 			BorrowType: &sema.ReferenceType{
-				Type: &sema.AnyStructType{},
+				Type: sema.AnyStructType,
 			},
 		},
 		&sema.CapabilityType{},
-		&sema.AnyStructType{},
+		sema.AnyStructType,
 	}
 
-	capabilityValue := interpreter.CapabilityValue{
+	capabilityValue := &interpreter.CapabilityValue{
 		Address: interpreter.AddressValue{},
 		Path:    interpreter.PathValue{},
 		BorrowType: interpreter.ConvertSemaToStaticType(
@@ -3340,8 +3474,10 @@ func TestInterpretDynamicCastingCapability(t *testing.T) {
 				Type: structType,
 			},
 		},
-		Value: capabilityValue,
-		Kind:  common.DeclarationKindConstant,
+		ValueFactory: func(_ *interpreter.Interpreter) interpreter.Value {
+			return capabilityValue
+		},
+		Kind: common.DeclarationKindConstant,
 	}
 
 	options := ParseCheckAndInterpretOptions{
@@ -3366,7 +3502,7 @@ func TestInterpretDynamicCastingCapability(t *testing.T) {
 
 					t.Run(fmt.Sprintf("valid: from %s to %s", fromType, targetType), func(t *testing.T) {
 
-						inter := parseCheckAndInterpretWithOptions(t,
+						inter, err := parseCheckAndInterpretWithOptions(t,
 							fmt.Sprintf(
 								`
                                   struct S {}
@@ -3379,30 +3515,35 @@ func TestInterpretDynamicCastingCapability(t *testing.T) {
 							),
 							options,
 						)
+						require.NoError(t, err)
 
-						assert.Equal(t,
+						AssertValuesEqual(
+							t,
+							inter,
 							capabilityValue,
-							inter.Globals["x"].Value,
+							inter.Globals["x"].GetValue(),
 						)
 
-						assert.Equal(t,
-							interpreter.NewSomeValueOwningNonCopying(
+						AssertValuesEqual(
+							t,
+							inter,
+							interpreter.NewSomeValueNonCopying(
 								capabilityValue,
 							),
-							inter.Globals["y"].Value,
+							inter.Globals["y"].GetValue(),
 						)
 					})
 				}
 
 				for _, otherType := range []sema.Type{
-					&sema.StringType{},
+					sema.StringType,
 					sema.VoidType,
-					&sema.BoolType{},
+					sema.BoolType,
 				} {
 
 					t.Run(fmt.Sprintf("invalid: from %s to Capability<&%s>", fromType, otherType), func(t *testing.T) {
 
-						inter := parseCheckAndInterpretWithOptions(t,
+						inter, err := parseCheckAndInterpretWithOptions(t,
 							fmt.Sprintf(
 								`
                                   struct S {}
@@ -3418,21 +3559,174 @@ func TestInterpretDynamicCastingCapability(t *testing.T) {
 							),
 							options,
 						)
+						require.NoError(t, err)
 
 						result, err := inter.Invoke("test")
 
 						if returnsOptional {
 							require.NoError(t, err)
-							assert.Equal(t,
+							AssertValuesEqual(
+								t,
+								inter,
 								interpreter.NilValue{},
 								result,
 							)
 						} else {
-							utils.RequireErrorAs(t, err, &interpreter.TypeMismatchError{})
+							require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
 						}
 					})
 				}
 			}
 		})
 	}
+}
+
+func TestInterpretResourceConstructorCast(t *testing.T) {
+
+	t.Parallel()
+
+	for operation, returnsOptional := range dynamicCastingOperations {
+		inter := parseCheckAndInterpret(t,
+			fmt.Sprintf(`
+                  resource R {}
+
+                  fun test(): AnyStruct {
+                      return R %s ((): @R)
+                  }
+                `,
+				operation.Symbol(),
+			),
+		)
+
+		result, err := inter.Invoke("test")
+		if returnsOptional {
+			require.NoError(t, err)
+			require.Equal(t, interpreter.NilValue{}, result)
+		} else {
+			require.Error(t, err)
+		}
+	}
+}
+
+func TestInterpretFunctionTypeCasting(t *testing.T) {
+
+	t.Parallel()
+
+	t.Run("function casting", func(t *testing.T) {
+		t.Parallel()
+
+		inter := parseCheckAndInterpret(t, `
+            fun test(): String {
+                let x: AnyStruct = foo
+                let y = x as! ((String):String)
+
+                return y("hello")
+            }
+
+            fun foo(a: String): String {
+                return a.concat(" from foo")
+            }
+        `)
+
+		result, err := inter.Invoke("test")
+		require.NoError(t, err)
+		require.Equal(t, interpreter.NewStringValue("hello from foo"), result)
+	})
+
+	t.Run("param contravariance", func(t *testing.T) {
+		t.Parallel()
+
+		inter := parseCheckAndInterpret(t, `
+            fun test(): String {
+                let x = foo as ((String):String)
+                return x("hello")
+            }
+
+            fun foo(a: AnyStruct): String {
+                return (a as! String).concat(" from foo")
+            }
+        `)
+
+		result, err := inter.Invoke("test")
+		require.NoError(t, err)
+		require.Equal(t, interpreter.NewStringValue("hello from foo"), result)
+	})
+
+	t.Run("param contravariance negative", func(t *testing.T) {
+		t.Parallel()
+
+		inter := parseCheckAndInterpret(t, `
+            fun test(): String {
+                 let x = foo as! ((AnyStruct):String)
+                 return x("hello")
+            }
+
+            fun foo(a: String): String {
+                return a.concat(" from foo")
+            }
+        `)
+
+		_, err := inter.Invoke("test")
+		require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
+	})
+
+	t.Run("return type covariance", func(t *testing.T) {
+		t.Parallel()
+
+		inter := parseCheckAndInterpret(t, `
+            fun test(): AnyStruct {
+                let x = foo as! ((String):AnyStruct)
+                return x("hello")
+            }
+
+            fun foo(a: String): String {
+                return a.concat(" from foo")
+            }
+        `)
+
+		result, err := inter.Invoke("test")
+		require.NoError(t, err)
+		require.Equal(t, interpreter.NewStringValue("hello from foo"), result)
+	})
+
+	t.Run("return type covariance negative", func(t *testing.T) {
+		t.Parallel()
+
+		inter := parseCheckAndInterpret(t, `
+            fun test(): String {
+                let x = foo as! ((String):String)
+                return x("hello")
+            }
+
+            fun foo(a: String): AnyStruct {
+                return a.concat(" from foo")
+            }
+        `)
+
+		_, err := inter.Invoke("test")
+		require.ErrorAs(t, err, &interpreter.ForceCastTypeMismatchError{})
+	})
+
+	t.Run("bound function casting", func(t *testing.T) {
+		t.Parallel()
+
+		inter := parseCheckAndInterpret(t, `
+            fun test(): String {
+                let x = foo()
+                let y: AnyStruct = x.bar
+                let z = y as! ((String):String)
+                return z("hello")
+            }
+
+            struct foo {
+                fun bar(a: String): String {
+                    return a.concat(" from foo.bar")
+                }
+            }
+        `)
+
+		result, err := inter.Invoke("test")
+		require.NoError(t, err)
+		require.Equal(t, interpreter.NewStringValue("hello from foo.bar"), result)
+	})
 }

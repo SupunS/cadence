@@ -36,10 +36,10 @@ type Server struct {
 // the language server to push various types of messages to the client.
 // https://microsoft.github.io/language-server-protocol/specifications/specification-3-14
 type Conn interface {
-	Notify(method string, params interface{})
+	Notify(method string, params interface{}) error
 	ShowMessage(params *ShowMessageParams)
 	LogMessage(params *LogMessageParams)
-	PublishDiagnostics(params *PublishDiagnosticsParams)
+	PublishDiagnostics(params *PublishDiagnosticsParams) error
 	RegisterCapability(params *RegistrationParams) error
 }
 
@@ -50,24 +50,24 @@ type connection struct {
 // ShowMessage displays a notification message to the client. It is visible to
 // the user.
 func (conn *connection) ShowMessage(params *ShowMessageParams) {
-	conn.Notify("window/showMessage", params)
+	_ = conn.Notify("window/showMessage", params)
 }
 
 // LogMessage logs a message to the Cadence terminal in VS Code. It isn't
 // visible to the user unless they go looking for it.
 func (conn *connection) LogMessage(params *LogMessageParams) {
-	conn.Notify("window/logMessage", params)
+	_ = conn.Notify("window/logMessage", params)
 }
 
 // PublishDiagnostics is used to report errors for a document, typically syntax
 // or semantic errors in the code.
-func (conn *connection) PublishDiagnostics(params *PublishDiagnosticsParams) {
-	conn.Notify("textDocument/publishDiagnostics", params)
+func (conn *connection) PublishDiagnostics(params *PublishDiagnosticsParams) error {
+	return conn.Notify("textDocument/publishDiagnostics", params)
 }
 
 // Notify sends a notification to the client.
-func (conn *connection) Notify(method string, params interface{}) {
-	conn.jsonrpc2Server.Notify(method, params)
+func (conn *connection) Notify(method string, params interface{}) error {
+	return conn.jsonrpc2Server.Notify(method, params)
 }
 
 // RegisterCapability is used to dynamically inform the client that the server
@@ -84,10 +84,14 @@ type Handler interface {
 	Hover(conn Conn, params *TextDocumentPositionParams) (*Hover, error)
 	Definition(conn Conn, params *TextDocumentPositionParams) (*Location, error)
 	SignatureHelp(conn Conn, params *TextDocumentPositionParams) (*SignatureHelp, error)
+	DocumentHighlight(conn Conn, params *TextDocumentPositionParams) ([]*DocumentHighlight, error)
+	Rename(conn Conn, params *RenameParams) (*WorkspaceEdit, error)
+	CodeAction(conn Conn, params *CodeActionParams) ([]*CodeAction, error)
 	CodeLens(conn Conn, params *CodeLensParams) ([]*CodeLens, error)
 	Completion(conn Conn, params *CompletionParams) ([]*CompletionItem, error)
 	ResolveCompletionItem(conn Conn, item *CompletionItem) (*CompletionItem, error)
 	ExecuteCommand(conn Conn, params *ExecuteCommandParams) (interface{}, error)
+	DocumentSymbol(conn Conn, params *DocumentSymbolParams) ([]*DocumentSymbol, error)
 	Shutdown(conn Conn) error
 	Exit(conn Conn) error
 }
@@ -126,6 +130,15 @@ func NewServer(handler Handler) *Server {
 	jsonrpc2Server.Methods["textDocument/codeLens"] =
 		server.handleCodeLens
 
+	jsonrpc2Server.Methods["textDocument/documentHighlight"] =
+		server.handleDocumentHighlight
+
+	jsonrpc2Server.Methods["textDocument/rename"] =
+		server.handleRename
+
+	jsonrpc2Server.Methods["textDocument/codeAction"] =
+		server.handleCodeAction
+
 	jsonrpc2Server.Methods["textDocument/completion"] =
 		server.handleCompletion
 
@@ -134,6 +147,9 @@ func NewServer(handler Handler) *Server {
 
 	jsonrpc2Server.Methods["workspace/executeCommand"] =
 		server.handleExecuteCommand
+
+	jsonrpc2Server.Methods["textDocument/documentSymbol"] =
+		server.handleDocumentSymbol
 
 	jsonrpc2Server.Methods["shutdown"] =
 		server.handleShutdown

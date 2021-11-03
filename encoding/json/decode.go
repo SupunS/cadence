@@ -27,10 +27,10 @@ import (
 	"io"
 	"math/big"
 	"strconv"
-	"strings"
 
 	"github.com/onflow/cadence"
 	"github.com/onflow/cadence/runtime/common"
+	"github.com/onflow/cadence/runtime/sema"
 )
 
 // A Decoder decodes JSON-encoded representations of Cadence values.
@@ -193,6 +193,8 @@ func decodeJSON(v interface{}) cadence.Value {
 		return decodeTypeValue(valueJSON)
 	case capabilityTypeStr:
 		return decodeCapability(valueJSON)
+	case enumTypeStr:
+		return decodeEnum(valueJSON)
 	}
 
 	panic(ErrInvalidJSONCadence)
@@ -221,7 +223,11 @@ func decodeBool(valueJSON interface{}) cadence.Bool {
 }
 
 func decodeString(valueJSON interface{}) cadence.String {
-	return cadence.NewString(toString(valueJSON))
+	str, err := cadence.NewString(toString(valueJSON))
+	if err != nil {
+		panic(err)
+	}
+	return str
 }
 
 func decodeAddress(valueJSON interface{}) cadence.Address {
@@ -308,15 +314,33 @@ func decodeInt64(valueJSON interface{}) cadence.Int64 {
 }
 
 func decodeInt128(valueJSON interface{}) cadence.Int128 {
-	return cadence.NewInt128FromBig(decodeBigInt(valueJSON))
+	bigInt := decodeBigInt(valueJSON)
+	value, err := cadence.NewInt128FromBig(bigInt)
+	if err != nil {
+		// TODO: improve error message
+		panic(ErrInvalidJSONCadence)
+	}
+	return value
 }
 
 func decodeInt256(valueJSON interface{}) cadence.Int256 {
-	return cadence.NewInt256FromBig(decodeBigInt(valueJSON))
+	bigInt := decodeBigInt(valueJSON)
+	value, err := cadence.NewInt256FromBig(bigInt)
+	if err != nil {
+		// TODO: improve error message
+		panic(ErrInvalidJSONCadence)
+	}
+	return value
 }
 
 func decodeUInt(valueJSON interface{}) cadence.UInt {
-	return cadence.NewUIntFromBig(decodeBigInt(valueJSON))
+	bigInt := decodeBigInt(valueJSON)
+	value, err := cadence.NewUIntFromBig(bigInt)
+	if err != nil {
+		// TODO: improve error message
+		panic(ErrInvalidJSONCadence)
+	}
+	return value
 }
 
 func decodeUInt8(valueJSON interface{}) cadence.UInt8 {
@@ -368,11 +392,23 @@ func decodeUInt64(valueJSON interface{}) cadence.UInt64 {
 }
 
 func decodeUInt128(valueJSON interface{}) cadence.UInt128 {
-	return cadence.NewUInt128FromBig(decodeBigInt(valueJSON))
+	bigInt := decodeBigInt(valueJSON)
+	value, err := cadence.NewUInt128FromBig(bigInt)
+	if err != nil {
+		// TODO: improve error message
+		panic(ErrInvalidJSONCadence)
+	}
+	return value
 }
 
 func decodeUInt256(valueJSON interface{}) cadence.UInt256 {
-	return cadence.NewUInt256FromBig(decodeBigInt(valueJSON))
+	bigInt := decodeBigInt(valueJSON)
+	value, err := cadence.NewUInt256FromBig(bigInt)
+	if err != nil {
+		// TODO: improve error message
+		panic(ErrInvalidJSONCadence)
+	}
+	return value
 }
 
 func decodeWord8(valueJSON interface{}) cadence.Word8 {
@@ -493,9 +529,13 @@ func decodeComposite(valueJSON interface{}) composite {
 
 	typeID := obj.GetString(idKey)
 	location, qualifiedIdentifier, err := common.DecodeTypeID(typeID)
-	if err != nil {
-		// TODO: improve error
-		panic(ErrInvalidJSONCadence)
+
+	if err != nil ||
+		location == nil && sema.NativeCompositeTypes[typeID] == nil {
+
+		// If the location is nil, and there is no native composite type with this ID, then its an invalid type.
+		// Note: This is moved out from the common.DecodeTypeID() to avoid the circular dependency.
+		panic(fmt.Errorf("%s. invalid type ID: `%s`", ErrInvalidJSONCadence, typeID))
 	}
 
 	fields := obj.GetSlice(fieldsKey)
@@ -566,6 +606,16 @@ func decodeContract(valueJSON interface{}) cadence.Contract {
 	comp := decodeComposite(valueJSON)
 
 	return cadence.NewContract(comp.fieldValues).WithType(&cadence.ContractType{
+		Location:            comp.location,
+		QualifiedIdentifier: comp.qualifiedIdentifier,
+		Fields:              comp.fieldTypes,
+	})
+}
+
+func decodeEnum(valueJSON interface{}) cadence.Enum {
+	comp := decodeComposite(valueJSON)
+
+	return cadence.NewEnum(comp.fieldValues).WithType(&cadence.EnumType{
 		Location:            comp.location,
 		QualifiedIdentifier: comp.qualifiedIdentifier,
 		Fields:              comp.fieldTypes,
@@ -700,18 +750,4 @@ func toObject(valueJSON interface{}) jsonObject {
 	}
 
 	return v
-}
-
-func identifierFromTypeID(typeID string) string {
-	// fully-qualified type ID must have at least two parts
-	// (namespace + ID)
-	// e.g. foo.Bar
-	parts := strings.Split(typeID, ".")
-	if len(parts) < 2 {
-		// TODO: improve error message
-		panic(ErrInvalidJSONCadence)
-	}
-
-	// parse ID from fully-qualified type ID
-	return parts[len(parts)-1]
 }

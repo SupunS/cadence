@@ -33,8 +33,8 @@ func TestOptionalSubtyping(t *testing.T) {
 	t.Run("Int? <: Int?", func(t *testing.T) {
 		assert.True(t,
 			IsSubType(
-				&OptionalType{Type: &IntType{}},
-				&OptionalType{Type: &IntType{}},
+				&OptionalType{Type: IntType},
+				&OptionalType{Type: IntType},
 			),
 		)
 	})
@@ -42,8 +42,8 @@ func TestOptionalSubtyping(t *testing.T) {
 	t.Run("Int? <: Bool?", func(t *testing.T) {
 		assert.False(t,
 			IsSubType(
-				&OptionalType{Type: &IntType{}},
-				&OptionalType{Type: &BoolType{}},
+				&OptionalType{Type: IntType},
+				&OptionalType{Type: BoolType},
 			),
 		)
 	})
@@ -51,8 +51,8 @@ func TestOptionalSubtyping(t *testing.T) {
 	t.Run("Int8? <: Integer?", func(t *testing.T) {
 		assert.True(t,
 			IsSubType(
-				&OptionalType{Type: &Int8Type{}},
-				&OptionalType{Type: &IntegerType{}},
+				&OptionalType{Type: Int8Type},
+				&OptionalType{Type: IntegerType},
 			),
 		)
 	})
@@ -70,10 +70,10 @@ func TestCompositeType_ID(t *testing.T) {
 			&CompositeType{
 				Location:   location,
 				Identifier: "C",
-				ContainerType: &CompositeType{
+				containerType: &CompositeType{
 					Location:   location,
 					Identifier: "B",
-					ContainerType: &CompositeType{
+					containerType: &CompositeType{
 						Location:   location,
 						Identifier: "A",
 					},
@@ -92,10 +92,10 @@ func TestCompositeType_ID(t *testing.T) {
 			&CompositeType{
 				Location:   location,
 				Identifier: "C",
-				ContainerType: &InterfaceType{
+				containerType: &InterfaceType{
 					Location:   location,
 					Identifier: "B",
-					ContainerType: &CompositeType{
+					containerType: &CompositeType{
 						Location:   location,
 						Identifier: "A",
 					},
@@ -121,10 +121,10 @@ func TestInterfaceType_ID(t *testing.T) {
 			&InterfaceType{
 				Location:   location,
 				Identifier: "C",
-				ContainerType: &CompositeType{
+				containerType: &CompositeType{
 					Location:   location,
 					Identifier: "B",
-					ContainerType: &CompositeType{
+					containerType: &CompositeType{
 						Location:   location,
 						Identifier: "A",
 					},
@@ -143,10 +143,10 @@ func TestInterfaceType_ID(t *testing.T) {
 			&InterfaceType{
 				Location:   location,
 				Identifier: "C",
-				ContainerType: &InterfaceType{
+				containerType: &InterfaceType{
 					Location:   location,
 					Identifier: "B",
-					ContainerType: &CompositeType{
+					containerType: &CompositeType{
 						Location:   location,
 						Identifier: "A",
 					},
@@ -170,16 +170,22 @@ func TestFunctionSubtyping(t *testing.T) {
 				&FunctionType{
 					Parameters: []*Parameter{
 						{
-							TypeAnnotation: NewTypeAnnotation(&IntType{}),
+							TypeAnnotation: NewTypeAnnotation(IntType),
 						},
 					},
+					ReturnTypeAnnotation: NewTypeAnnotation(
+						VoidType,
+					),
 				},
 				&FunctionType{
 					Parameters: []*Parameter{
 						{
-							TypeAnnotation: NewTypeAnnotation(&AnyStructType{}),
+							TypeAnnotation: NewTypeAnnotation(AnyStructType),
 						},
 					},
+					ReturnTypeAnnotation: NewTypeAnnotation(
+						VoidType,
+					),
 				},
 			),
 		)
@@ -191,16 +197,22 @@ func TestFunctionSubtyping(t *testing.T) {
 				&FunctionType{
 					Parameters: []*Parameter{
 						{
-							TypeAnnotation: NewTypeAnnotation(&AnyStructType{}),
+							TypeAnnotation: NewTypeAnnotation(AnyStructType),
 						},
 					},
+					ReturnTypeAnnotation: NewTypeAnnotation(
+						VoidType,
+					),
 				},
 				&FunctionType{
 					Parameters: []*Parameter{
 						{
-							TypeAnnotation: NewTypeAnnotation(&IntType{}),
+							TypeAnnotation: NewTypeAnnotation(IntType),
 						},
 					},
+					ReturnTypeAnnotation: NewTypeAnnotation(
+						VoidType,
+					),
 				},
 			),
 		)
@@ -210,10 +222,10 @@ func TestFunctionSubtyping(t *testing.T) {
 		assert.True(t,
 			IsSubType(
 				&FunctionType{
-					ReturnTypeAnnotation: NewTypeAnnotation(&IntType{}),
+					ReturnTypeAnnotation: NewTypeAnnotation(IntType),
 				},
 				&FunctionType{
-					ReturnTypeAnnotation: NewTypeAnnotation(&AnyStructType{}),
+					ReturnTypeAnnotation: NewTypeAnnotation(AnyStructType),
 				},
 			),
 		)
@@ -223,10 +235,41 @@ func TestFunctionSubtyping(t *testing.T) {
 		assert.False(t,
 			IsSubType(
 				&FunctionType{
-					ReturnTypeAnnotation: NewTypeAnnotation(&AnyStructType{}),
+					ReturnTypeAnnotation: NewTypeAnnotation(AnyStructType),
 				},
 				&FunctionType{
-					ReturnTypeAnnotation: NewTypeAnnotation(&IntType{}),
+					ReturnTypeAnnotation: NewTypeAnnotation(IntType),
+				},
+			),
+		)
+	})
+
+	t.Run("constructor != non-constructor", func(t *testing.T) {
+		assert.False(t,
+			IsSubType(
+				&FunctionType{
+					IsConstructor:        false,
+					ReturnTypeAnnotation: NewTypeAnnotation(VoidType),
+				},
+				&FunctionType{
+					IsConstructor:        true,
+					ReturnTypeAnnotation: NewTypeAnnotation(VoidType),
+				},
+			),
+		)
+	})
+
+	t.Run("different receiver types", func(t *testing.T) {
+		// Receiver shouldn't matter
+		assert.True(t,
+			IsSubType(
+				&FunctionType{
+					ReceiverType:         AuthAccountType,
+					ReturnTypeAnnotation: NewTypeAnnotation(VoidType),
+				},
+				&FunctionType{
+					ReceiverType:         PublicAccountType,
+					ReturnTypeAnnotation: NewTypeAnnotation(VoidType),
 				},
 			),
 		)

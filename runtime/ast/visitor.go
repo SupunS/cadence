@@ -23,6 +23,7 @@ type Repr interface{}
 type Element interface {
 	HasPosition
 	Accept(Visitor) Repr
+	Walk(walkChild func(Element))
 }
 
 type NotAnElement struct{}
@@ -38,6 +39,10 @@ func (NotAnElement) StartPosition() Position {
 
 func (NotAnElement) EndPosition() Position {
 	return Position{}
+}
+
+func (NotAnElement) Walk(_ func(Element)) {
+	// NO-OP
 }
 
 type StatementVisitor interface {
@@ -90,7 +95,6 @@ type Visitor interface {
 	VisitInterfaceDeclaration(*InterfaceDeclaration) Repr
 	VisitFieldDeclaration(*FieldDeclaration) Repr
 	VisitEnumCaseDeclaration(*EnumCaseDeclaration) Repr
-	VisitCondition(*Condition) Repr
 	VisitPragmaDeclaration(*PragmaDeclaration) Repr
 	VisitImportDeclaration(*ImportDeclaration) Repr
 	VisitTransactionDeclaration(*TransactionDeclaration) Repr

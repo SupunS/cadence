@@ -62,7 +62,7 @@ func TestEntryPointParameters(t *testing.T) {
 				{
 					Label:          "",
 					Identifier:     "a",
-					TypeAnnotation: sema.NewTypeAnnotation(&sema.IntType{}),
+					TypeAnnotation: sema.NewTypeAnnotation(sema.IntType),
 				},
 			},
 			parameters,
@@ -101,11 +101,80 @@ func TestEntryPointParameters(t *testing.T) {
 				{
 					Label:          "",
 					Identifier:     "a",
-					TypeAnnotation: sema.NewTypeAnnotation(&sema.IntType{}),
+					TypeAnnotation: sema.NewTypeAnnotation(sema.IntType),
 				},
 			},
 			parameters,
 		)
+	})
+
+	t.Run("struct, script, one parameters", func(t *testing.T) {
+
+		t.Parallel()
+
+		checker, err := ParseAndCheck(t, `
+            pub struct SomeStruct {}
+
+            pub fun main(a: Int) {}
+        `)
+
+		require.NoError(t, err)
+
+		parameters := checker.EntryPointParameters()
+
+		require.Equal(t,
+			[]*sema.Parameter{
+				{
+					Label:          "",
+					Identifier:     "a",
+					TypeAnnotation: sema.NewTypeAnnotation(sema.IntType),
+				},
+			},
+			parameters,
+		)
+	})
+
+	t.Run("interface, script, one parameters", func(t *testing.T) {
+
+		t.Parallel()
+
+		checker, err := ParseAndCheck(t, `
+            pub struct interface SomeInterface {}
+
+            pub fun main(a: Int) {}
+        `)
+
+		require.NoError(t, err)
+
+		parameters := checker.EntryPointParameters()
+
+		require.Equal(t,
+			[]*sema.Parameter{
+				{
+					Label:          "",
+					Identifier:     "a",
+					TypeAnnotation: sema.NewTypeAnnotation(sema.IntType),
+				},
+			},
+			parameters,
+		)
+	})
+
+	t.Run("struct, transaction, one parameters", func(t *testing.T) {
+
+		t.Parallel()
+
+		checker, err := ParseAndCheck(t, `
+            pub struct SomeStruct {}
+
+            transaction(a: Int) {}
+        `)
+
+		require.NoError(t, err)
+
+		parameters := checker.EntryPointParameters()
+
+		require.Empty(t, parameters)
 	})
 
 	t.Run("transaction and script", func(t *testing.T) {

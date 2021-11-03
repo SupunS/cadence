@@ -6,10 +6,13 @@ import json
 import logging
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import sys
 import textwrap
 from collections import defaultdict
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum, unique
 from pathlib import Path
@@ -36,10 +39,21 @@ class Openable(Protocol):
         pass
 
 
+@contextmanager
+def cwd(path):
+    oldpwd = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(oldpwd)
+
+
 @dataclass
 class File:
     path: str
     prepare: Optional[str]
+    member_account_access: List[str] = field(default_factory=list)
 
     def rewrite(self, path: Path):
         if not isinstance(self.prepare, str):
@@ -51,10 +65,13 @@ class File:
         with path.open(mode="r") as f:
             source = f.read()
 
-        variables = {"source": source}
-        os.chdir(str(path.parent.absolute()))
-        exec(self.prepare, variables)
-        source = variables["source"]
+        def replace(pattern, replacement):
+            nonlocal source
+            source = re.sub(pattern, replacement, source)
+
+        variables = {"replace": replace}
+        with cwd(str(path.parent.absolute())):
+            exec(self.prepare, variables)
 
         with path.open(mode="w") as f:
             f.write(source)
@@ -63,16 +80,27 @@ class File:
     def parse(cls, path: Path, use_json: bool, bench: bool) -> (bool, Optional):
         return cls._run(PARSER_PATH, "Parsing", path, use_json, bench)
 
-    @classmethod
-    def check(cls, path: Path, use_json: bool, bench: bool) -> (bool, Optional):
-        return cls._run(CHECKER_PATH, "Checking", path, use_json, bench)
+    def check(self, path: Path, use_json: bool, bench: bool) -> (bool, Optional):
+        extra_args = [
+            f"-memberAccountAccess=S.{path}:S.{(path.parent / Path(other_path)).resolve()}"
+            for other_path in self.member_account_access
+        ]
+        return self._run(CHECKER_PATH, "Checking", path, use_json, bench, extra_args)
 
     @staticmethod
-    def _run(tool_path: Path, verb: str, path: Path, use_json: bool, bench: bool) -> (bool, Optional):
+    def _run(
+            tool_path: Path,
+            verb: str,
+            path: Path,
+            use_json: bool,
+            bench: bool,
+            extra_args: List[str] = None
+    ) -> (bool, Optional):
         logger.info(f"{verb} {path}")
         json_args = ["-json"] if use_json else []
         bench_args = ["-bench"] if bench else []
-        args = json_args + bench_args
+        args = json_args + bench_args + (extra_args or [])
+
         completed_process = subprocess.run(
             [tool_path, *args, path],
             cwd=str(path.parent),
@@ -87,6 +115,30 @@ class File:
             return False, result
 
         return True, result
+
+
+@dataclass
+class GoTest:
+    path: str
+    command: str
+
+    def run(self, working_dir: Path, prepare: bool, go_test_ref: Optional[str]) -> bool:
+        if go_test_ref:
+            replacement = f'github.com/onflow/cadence@{go_test_ref}'
+        else:
+            replacement = shlex.quote(str(Path.cwd().parent.absolute()))
+
+        with cwd(working_dir / self.path):
+            if prepare:
+                subprocess.run([
+                    "go", "mod", "edit", "-replace", f'github.com/onflow/cadence={replacement}',
+                ])
+                subprocess.run([
+                    "go", "get", "-t", ".",
+                ])
+
+            result = subprocess.run(shlex.split(self.command))
+            return result.returncode == 0
 
 
 @dataclass
@@ -122,12 +174,18 @@ class Result:
     check_result: Optional[CheckResult] = field(default=None)
 
 
+def load_index(path: Path) -> List[str]:
+    logger.info(f"Loading suite index from {path} ...")
+    with path.open(mode="r") as f:
+        return yaml.safe_load(f)
+
 @dataclass
 class Description:
     description: str
     url: str
     branch: str
-    files: List[File]
+    files: List[File] = field(default_factory=list)
+    go_tests: List[GoTest] = field(default_factory=list)
 
     @staticmethod
     def load(name: str) -> Description:
@@ -142,17 +200,44 @@ class Description:
 
     def _clone(self, working_dir: Path):
         if working_dir.exists():
-            raise Exception(f"{working_dir} exists")
+            shutil.rmtree(working_dir)
 
         logger.info(f"Cloning {self.url} ({self.branch})")
 
         Git.clone(self.url, self.branch, working_dir)
 
-    def run(self, name: str, clone: bool, use_json: bool, bench: bool) -> (bool, List):
+    def run(
+        self,
+        name: str,
+        prepare: bool,
+        use_json: bool,
+        bench: bool,
+        check: bool,
+        go_test: bool,
+        go_test_ref: Optional[str],
+    ) -> (bool, List[Result]):
+
         working_dir = SUITE_PATH / name
 
-        if clone:
+        if prepare:
             self._clone(working_dir)
+
+        results: List[Result] = []
+        check_succeeded = True
+        if check:
+            check_succeeded, results = self.check(working_dir, prepare=prepare, use_json=use_json, bench=bench)
+
+        go_tests_succeeded = True
+        if go_test:
+            for test in self.go_tests:
+                if not test.run(working_dir, prepare=prepare, go_test_ref=go_test_ref):
+                    go_tests_succeeded = False
+
+        succeeded = check_succeeded and go_tests_succeeded
+
+        return succeeded, results
+
+    def check(self, working_dir: Path, prepare: bool, use_json: bool, bench: bool) -> (bool, List[Result]):
 
         run_succeeded = True
 
@@ -161,7 +246,7 @@ class Description:
         for file in self.files:
             path = working_dir.joinpath(file.path)
 
-            if clone:
+            if prepare:
                 file.rewrite(path)
 
             parse_succeeded, parse_results = \
@@ -177,7 +262,7 @@ class Description:
                 continue
 
             check_succeeded, check_results = \
-                File.check(path, use_json=use_json, bench=bench)
+                file.check(path, use_json=use_json, bench=bench)
             if check_results:
                 result.check_result = CheckResult.from_dict(check_results[0])
             if use_json:
@@ -194,7 +279,7 @@ class Git:
     @staticmethod
     def clone(url: str, branch: str, working_dir: Path):
         subprocess.run([
-            "git", "clone", "--single-branch", "--branch",
+            "git", "clone", "--depth", "1", "--branch",
             branch, url, working_dir
         ])
 
@@ -492,7 +577,7 @@ class Comparisons:
 
     @staticmethod
     def _time_markdown(time: int) -> str:
-        return f'{time/1000000:.2f}'
+        return f'{time / 1000000:.2f}'
 
     @staticmethod
     def _delta_markdown(delta: float) -> str:
@@ -585,7 +670,7 @@ def build_all():
     "--rerun",
     is_flag=True,
     default=False,
-    help="Rerun without cloning"
+    help="Rerun without cloning and preparing the suites"
 )
 @click.option(
     "--format",
@@ -594,10 +679,27 @@ def build_all():
     help="output format",
 )
 @click.option(
-    "--bench",
+    "--bench/--no-bench",
     is_flag=True,
     default=False,
     help="Run benchmarks"
+)
+@click.option(
+    "--check/--no-check",
+    is_flag=True,
+    default=True,
+    help="Parse and check the suite files"
+)
+@click.option(
+    "--go-test/--no-go-test",
+    is_flag=True,
+    default=False,
+    help="Run the suite Go tests"
+)
+@click.option(
+    "--go-test-ref",
+    default=None,
+    help="Git ref of Cadence for Go tests"
 )
 @click.option(
     "--output",
@@ -624,6 +726,9 @@ def main(
         rerun: bool,
         format: Format,
         bench: bool,
+        check: bool,
+        go_test: bool,
+        go_test_ref: Optional[str],
         output: Optional[LazyFile],
         other_ref: Optional[str],
         delta_threshold: float,
@@ -632,7 +737,7 @@ def main(
     if other_ref is None and format not in ("pretty", "json"):
         raise Exception(f"unsupported format: {format}")
 
-    clone = not rerun
+    prepare = not rerun
 
     output: IO = output.open() if output else sys.stdout
 
@@ -643,9 +748,12 @@ def main(
     # Run for the current checkout
 
     current_success, current_results = run(
-        clone=clone,
+        prepare=prepare,
         use_json=use_json_for_run,
         bench=bench,
+        check=check,
+        go_test=go_test,
+        go_test_ref=go_test_ref,
         names=names
     )
 
@@ -658,9 +766,11 @@ def main(
 
             _, other_results = run(
                 # suite repositories were already cloned in the previous run
-                clone=False,
+                prepare=False,
                 use_json=use_json_for_run,
                 bench=bench,
+                check=check,
+                go_test=go_test,
                 names=names
             )
 
@@ -688,13 +798,22 @@ def main(
         exit(1)
 
 
-def run(clone: bool, use_json: bool, bench: bool, names: Collection[str]) -> (bool, List[Result]):
+def run(
+        prepare: bool,
+        use_json: bool,
+        bench: bool,
+        check: bool,
+        go_test: bool,
+        go_test_ref: Optional[str],
+        names: Collection[str]
+) -> (bool, List[Result]):
+
     build_all()
 
     all_succeeded = True
 
-    if not len(names):
-        names = [description_path.stem for description_path in SUITE_PATH.glob("*.yaml")]
+    if not names:
+        names = load_index(SUITE_PATH / "index.yaml")
 
     all_results: List[Result] = []
 
@@ -704,9 +823,12 @@ def run(clone: bool, use_json: bool, bench: bool, names: Collection[str]) -> (bo
 
         run_succeeded, results = description.run(
             name,
-            clone=clone,
+            prepare=prepare,
             use_json=use_json,
-            bench=bench
+            bench=bench,
+            check=check,
+            go_test=go_test,
+            go_test_ref=go_test_ref,
         )
 
         if not run_succeeded:

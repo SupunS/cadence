@@ -30,11 +30,34 @@ func (checker *Checker) VisitBinaryExpression(expression *ast.BinaryExpression) 
 	// However, the right-hand side might not necessarily be evaluated,
 	// e.g. in boolean logic or in nil-coalescing
 
-	leftType := expression.Left.Accept(checker).(Type)
-	leftIsInvalid := leftType.IsInvalidType()
-
 	operation := expression.Operation
 	operationKind := binaryOperationKind(operation)
+
+	// Of all binary expressions, only arithmetic expressions require the
+	// rhsExpr and lhsExpr to be in the same type as the parent expression.
+	// i.e: `var x: Int8 = a + b`. Here both `a` and `b` needs to be of the type `Int8`.
+	//
+	// This is also true, even if the expected type is `Int8?` e.g: `var x: Int8? = a + b`
+	// So here we take the 'optional-type' out of the way.
+	//
+	// For the rest of the binary-expressions, this is not the case. e.g: logical-expressions.
+	// i.e: `var x: Bool = a > b`. Here `a` and `b` can be anything, and doesn't have to be `Bool`.
+	// For them, the type is inferred from the expressions themselves, and the compatibility check
+	// is done based on the operation kind.
+
+	var expectedType Type
+	switch operationKind {
+	case BinaryOperationKindArithmetic,
+		BinaryOperationKindBitwise:
+		expectedType = UnwrapOptionalType(checker.expectedType)
+	}
+
+	// Visit the expression, with contextually expected type. Use the expected type
+	// only for inferring wherever possible, but do not check for compatibility.
+	// Compatibility is checked separately for each operand kind.
+	leftType := checker.VisitExpressionWithForceType(expression.Left, expectedType, false)
+
+	leftIsInvalid := leftType.IsInvalidType()
 
 	unsupportedOperation := func() Type {
 		panic(&unsupportedOperation{
@@ -52,7 +75,44 @@ func (checker *Checker) VisitBinaryExpression(expression *ast.BinaryExpression) 
 
 		// Right hand side will always be evaluated
 
-		rightType := expression.Right.Accept(checker).(Type)
+		// Visit the expression, with contextually expected type.
+		// Use the expected type only for inferring wherever possible,
+		// but do not check for compatibility.
+		// Compatibility is checked separately for each operand kind.
+		//
+		// If there is no contextually expected type,
+		// then expect the right type to have the type of the left side.
+		// For example, this allows a declaration like this to type-check:
+		//
+		// ```
+		// let x = 1 as UInt8
+		// let y = x + 1
+		// ```
+		//
+		// Also, if there is a contextually expected type,
+		// but the left type is a subtype and more specific (i.e not the same),
+		// then use it instead as the expected type for the right type.
+		// For example, this allows declarations like the following to type-check:
+		//
+		// ```
+		// let x = 1 as UInt8
+		// let y: Integer = x + 1
+		// ```
+		//
+		// ```
+		// let string = "this is a test"
+		// let index = 1 as UInt8
+		// let character = string[index + 1]
+		// ```
+
+		if expectedType == nil ||
+			(leftType != expectedType && IsProperSubType(leftType, expectedType)) {
+
+			expectedType = leftType
+		}
+
+		rightType := checker.VisitExpressionWithForceType(expression.Right, expectedType, false)
+
 		rightIsInvalid := rightType.IsInvalidType()
 
 		anyInvalid := leftIsInvalid || rightIsInvalid
@@ -87,7 +147,13 @@ func (checker *Checker) VisitBinaryExpression(expression *ast.BinaryExpression) 
 		// are not definite, but only potential.
 
 		rightType := checker.checkPotentiallyUnevaluated(func() Type {
-			return expression.Right.Accept(checker).(Type)
+			var expectedType Type
+			if !leftIsInvalid {
+				if optionalLeftType, ok := leftType.(*OptionalType); ok {
+					expectedType = optionalLeftType.Type
+				}
+			}
+			return checker.VisitExpressionWithForceType(expression.Right, expectedType, false)
 		})
 
 		rightIsInvalid := rightType.IsInvalidType()
@@ -137,10 +203,10 @@ func (checker *Checker) checkBinaryExpressionArithmeticOrNonEqualityComparisonOr
 	case BinaryOperationKindArithmetic,
 		BinaryOperationKindNonEqualityComparison:
 
-		expectedSuperType = &NumberType{}
+		expectedSuperType = NumberType
 
 	case BinaryOperationKindBitwise:
-		expectedSuperType = &IntegerType{}
+		expectedSuperType = IntegerType
 
 	default:
 		panic(errors.NewUnreachableError())
@@ -212,7 +278,7 @@ func (checker *Checker) checkBinaryExpressionArithmeticOrNonEqualityComparisonOr
 		return leftType
 
 	case BinaryOperationKindNonEqualityComparison:
-		return &BoolType{}
+		return BoolType
 
 	default:
 		panic(errors.NewUnreachableError())
@@ -227,7 +293,7 @@ func (checker *Checker) checkBinaryExpressionEquality(
 	leftIsInvalid, rightIsInvalid, anyInvalid bool,
 ) (resultType Type) {
 
-	resultType = &BoolType{}
+	resultType = BoolType
 
 	if anyInvalid {
 		return
@@ -259,8 +325,8 @@ func (checker *Checker) checkBinaryExpressionBooleanLogic(
 ) Type {
 	// check both types are boolean subtypes
 
-	leftIsBool := IsSubType(leftType, &BoolType{})
-	rightIsBool := IsSubType(rightType, &BoolType{})
+	leftIsBool := IsSubType(leftType, BoolType)
+	rightIsBool := IsSubType(rightType, BoolType)
 
 	if !leftIsBool && !rightIsBool {
 		if !anyInvalid {
@@ -279,7 +345,7 @@ func (checker *Checker) checkBinaryExpressionBooleanLogic(
 				&InvalidBinaryOperandError{
 					Operation:    operation,
 					Side:         common.OperandSideLeft,
-					ExpectedType: &BoolType{},
+					ExpectedType: BoolType,
 					ActualType:   leftType,
 					Range:        ast.NewRangeFromPositioned(expression.Left),
 				},
@@ -291,7 +357,7 @@ func (checker *Checker) checkBinaryExpressionBooleanLogic(
 				&InvalidBinaryOperandError{
 					Operation:    operation,
 					Side:         common.OperandSideRight,
-					ExpectedType: &BoolType{},
+					ExpectedType: BoolType,
 					ActualType:   rightType,
 					Range:        ast.NewRangeFromPositioned(expression.Right),
 				},
@@ -299,7 +365,7 @@ func (checker *Checker) checkBinaryExpressionBooleanLogic(
 		}
 	}
 
-	return &BoolType{}
+	return BoolType
 }
 
 func (checker *Checker) checkBinaryExpressionNilCoalescing(

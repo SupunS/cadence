@@ -59,6 +59,14 @@ func (d *VariableDeclaration) Accept(visitor Visitor) Repr {
 	return visitor.VisitVariableDeclaration(d)
 }
 
+func (d *VariableDeclaration) Walk(walkChild func(Element)) {
+	// TODO: walk type
+	walkChild(d.Value)
+	if d.SecondValue != nil {
+		walkChild(d.SecondValue)
+	}
+}
+
 func (d *VariableDeclaration) DeclarationIdentifier() *Identifier {
 	return &d.Identifier
 }
@@ -72,6 +80,14 @@ func (d *VariableDeclaration) DeclarationKind() common.DeclarationKind {
 
 func (d *VariableDeclaration) DeclarationAccess() Access {
 	return d.Access
+}
+
+func (d *VariableDeclaration) DeclarationMembers() *Members {
+	return nil
+}
+
+func (d *VariableDeclaration) DeclarationDocString() string {
+	return d.DocString
 }
 
 func (d *VariableDeclaration) MarshalJSON() ([]byte, error) {

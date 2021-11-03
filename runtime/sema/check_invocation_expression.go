@@ -58,18 +58,33 @@ func (checker *Checker) checkInvocationExpression(invocationExpression *ast.Invo
 	// check the invoked expression can be invoked
 
 	invokedExpression := invocationExpression.InvokedExpression
-	expressionType := invokedExpression.Accept(checker).(Type)
+	expressionType := checker.VisitExpression(invokedExpression, nil)
+
+	// Get the member from the invoked value
+	// based on the use of optional chaining syntax
 
 	isOptionalChainingResult := false
 	if memberExpression, ok := invokedExpression.(*ast.MemberExpression); ok {
-		var member *Member
-		_, member, isOptionalChainingResult = checker.visitMember(memberExpression)
-		if member != nil {
-			expressionType = member.TypeAnnotation.Type
+
+		// If the member expression is using optional chaining,
+		// check if the invoked type is optional
+
+		isOptionalChainingResult = memberExpression.Optional
+		if isOptionalChainingResult {
+			if optionalExpressionType, ok := expressionType.(*OptionalType); ok {
+
+				// The invoked type is optional, get the type from the wrapped type
+				expressionType = optionalExpressionType.Type
+			}
 		}
 	}
 
-	invokableType, ok := expressionType.(InvokableType)
+	var argumentTypes []Type
+	defer func() {
+		checker.Elaboration.InvocationExpressionArgumentTypes[invocationExpression] = argumentTypes
+	}()
+
+	functionType, ok := expressionType.(*FunctionType)
 	if !ok {
 		if !expressionType.IsInvalidType() {
 			checker.report(
@@ -79,6 +94,16 @@ func (checker *Checker) checkInvocationExpression(invocationExpression *ast.Invo
 				},
 			)
 		}
+
+		argumentTypes = make([]Type, 0, len(invocationExpression.Arguments))
+
+		for _, argument := range invocationExpression.Arguments {
+			argumentType := checker.VisitExpression(argument.Expression, nil)
+			argumentTypes = append(argumentTypes, argumentType)
+		}
+
+		checker.Elaboration.InvocationExpressionReturnTypes[invocationExpression] = checker.expectedType
+
 		return InvalidType
 	}
 
@@ -89,12 +114,11 @@ func (checker *Checker) checkInvocationExpression(invocationExpression *ast.Invo
 	// then `isOptionalChainingResult` is true, which means the invocation
 	// is only potential, i.e. the invocation will not always
 
-	var argumentTypes []Type
 	var returnType Type
 
 	checkInvocation := func() {
 		argumentTypes, returnType =
-			checker.checkInvocation(invocationExpression, invokableType)
+			checker.checkInvocation(invocationExpression, functionType)
 	}
 
 	if isOptionalChainingResult {
@@ -107,7 +131,26 @@ func (checker *Checker) checkInvocationExpression(invocationExpression *ast.Invo
 		checkInvocation()
 	}
 
-	checker.Elaboration.InvocationExpressionArgumentTypes[invocationExpression] = argumentTypes
+	arguments := invocationExpression.Arguments
+
+	if checker.positionInfoEnabled && len(arguments) > 0 {
+
+		trailingSeparatorPositions := make([]ast.Position, 0, len(arguments))
+
+		for _, argument := range arguments {
+			trailingSeparatorPositions = append(
+				trailingSeparatorPositions,
+				argument.TrailingSeparatorPos,
+			)
+		}
+
+		checker.FunctionInvocations.Put(
+			invocationExpression.ArgumentsStartPos,
+			invocationExpression.EndPos,
+			functionType,
+			trailingSeparatorPositions,
+		)
+	}
 
 	// If the invocation refers directly to the name of the function as stated in the declaration,
 	// or the invocation refers to a function of a composite (member),
@@ -129,7 +172,7 @@ func (checker *Checker) checkInvocationExpression(invocationExpression *ast.Invo
 
 	checker.checkConstructorInvocationWithResourceResult(
 		invocationExpression,
-		invokableType,
+		functionType,
 		returnType,
 		inCreate,
 	)
@@ -144,7 +187,7 @@ func (checker *Checker) checkInvocationExpression(invocationExpression *ast.Invo
 	}
 
 	if isOptionalChainingResult {
-		return &OptionalType{Type: returnType}
+		return wrapWithOptionalIfNotNil(returnType)
 	}
 	return returnType
 }
@@ -190,7 +233,7 @@ func (checker *Checker) checkMemberInvocationResourceInvalidation(invokedExpress
 		return
 	}
 
-	checker.resources.RemoveTemporaryInvalidation(
+	checker.resources.RemoveTemporaryMoveInvalidation(
 		invalidation.resource,
 		invalidation.invalidation,
 	)
@@ -203,11 +246,11 @@ func (checker *Checker) checkMemberInvocationResourceInvalidation(invokedExpress
 
 func (checker *Checker) checkConstructorInvocationWithResourceResult(
 	invocationExpression *ast.InvocationExpression,
-	invokableType InvokableType,
+	functionType *FunctionType,
 	returnType Type,
 	inCreate bool,
 ) {
-	if _, ok := invokableType.(*SpecialFunctionType); !ok {
+	if !functionType.IsConstructor {
 		return
 	}
 
@@ -235,7 +278,7 @@ func (checker *Checker) checkIdentifierInvocationArgumentLabels(
 	invocationExpression *ast.InvocationExpression,
 	identifierExpression *ast.IdentifierExpression,
 ) {
-	variable := checker.findAndCheckValueVariable(identifierExpression.Identifier, false)
+	variable := checker.findAndCheckValueVariable(identifierExpression, false)
 
 	if variable == nil || len(variable.ArgumentLabels) == 0 {
 		return
@@ -320,13 +363,11 @@ func (checker *Checker) checkInvocationArgumentLabels(
 
 func (checker *Checker) checkInvocation(
 	invocationExpression *ast.InvocationExpression,
-	invokableType InvokableType,
+	functionType *FunctionType,
 ) (
 	argumentTypes []Type,
 	returnType Type,
 ) {
-	functionType := invokableType.InvocationFunctionType()
-
 	parameterCount := len(functionType.Parameters)
 	requiredArgumentCount := functionType.RequiredArgumentCount
 	typeParameterCount := len(functionType.TypeParameters)
@@ -335,7 +376,7 @@ func (checker *Checker) checkInvocation(
 
 	typeArgumentCount := len(invocationExpression.TypeArguments)
 
-	typeArguments := make(map[*TypeParameter]Type, typeParameterCount)
+	typeArguments := NewTypeParameterTypeOrderedMap()
 
 	// If the function type is generic, the invocation might provide
 	// explicit type arguments for the type parameters.
@@ -405,8 +446,8 @@ func (checker *Checker) checkInvocation(
 
 	for i := minCount; i < argumentCount; i++ {
 		argument := invocationExpression.Arguments[i]
-
-		argumentTypes[i] = argument.Expression.Accept(checker).(Type)
+		// TODO: pass the expected type to support type inferring for parameters
+		argumentTypes[i] = checker.VisitExpression(argument.Expression, nil)
 	}
 
 	// The invokable type might have special checks for the arguments
@@ -416,7 +457,7 @@ func (checker *Checker) checkInvocation(
 		argumentExpressions[i] = argument.Expression
 	}
 
-	invokableType.CheckArgumentExpressions(
+	functionType.CheckArgumentExpressions(
 		checker,
 		argumentExpressions,
 		ast.NewRangeFromPositioned(invocationExpression),
@@ -438,6 +479,7 @@ func (checker *Checker) checkInvocation(
 
 	// Save types in the elaboration
 
+	checker.Elaboration.InvocationExpressionReceiverTypes[invocationExpression] = functionType.ReceiverType
 	checker.Elaboration.InvocationExpressionTypeArguments[invocationExpression] = typeArguments
 	checker.Elaboration.InvocationExpressionParameterTypes[invocationExpression] = parameterTypes
 	checker.Elaboration.InvocationExpressionReturnTypes[invocationExpression] = returnType
@@ -450,12 +492,12 @@ func (checker *Checker) checkInvocation(
 //
 func (checker *Checker) checkTypeParameterInference(
 	functionType *FunctionType,
-	typeArguments map[*TypeParameter]Type,
+	typeArguments *TypeParameterTypeOrderedMap,
 	invocationExpression *ast.InvocationExpression,
 ) {
 	for _, typeParameter := range functionType.TypeParameters {
 
-		if typeArguments[typeParameter] != nil {
+		if ty, ok := typeArguments.Get(typeParameter); ok && ty != nil {
 			continue
 		}
 
@@ -479,38 +521,50 @@ func (checker *Checker) checkInvocationRequiredArgument(
 	argumentIndex int,
 	functionType *FunctionType,
 	argumentTypes []Type,
-	typeParameters map[*TypeParameter]Type,
+	typeParameters *TypeParameterTypeOrderedMap,
 ) (
 	parameterType Type,
 ) {
 	argument := arguments[argumentIndex]
-	argumentType := argument.Expression.Accept(checker).(Type)
+
+	parameter := functionType.Parameters[argumentIndex]
+	parameterType = parameter.TypeAnnotation.Type
+
+	var argumentType Type
+
+	if len(functionType.TypeParameters) == 0 {
+		// If the function doesn't use generic types, then the
+		// param types can be used to infer the types for arguments.
+		argumentType = checker.VisitExpression(argument.Expression, parameterType)
+	} else {
+		// TODO: pass the expected type to support for parameters
+		argumentType = checker.VisitExpression(argument.Expression, nil)
+
+		// Try to unify the parameter type with the argument type.
+		// If unification fails, fall back to the parameter type for now.
+
+		argumentRange := ast.NewRangeFromPositioned(argument.Expression)
+
+		if parameterType.Unify(argumentType, typeParameters, checker.report, argumentRange) {
+			parameterType = parameterType.Resolve(typeParameters)
+			if parameterType == nil {
+				parameterType = InvalidType
+			}
+		}
+
+		// Check that the type of the argument matches the type of the parameter.
+
+		// TODO: remove this once type inferring support for parameters is added
+		checker.checkInvocationArgumentParameterTypeCompatibility(
+			argument.Expression,
+			argumentType,
+			parameterType,
+		)
+	}
+
 	argumentTypes[argumentIndex] = argumentType
 
 	checker.checkInvocationArgumentMove(argument.Expression, argumentType)
-
-	parameter := functionType.Parameters[argumentIndex]
-
-	// Try to unify the parameter type with the argument type.
-	// If unification fails, fall back to the parameter type for now.
-
-	argumentRange := ast.NewRangeFromPositioned(argument.Expression)
-
-	parameterType = parameter.TypeAnnotation.Type
-	if parameterType.Unify(argumentType, typeParameters, checker.report, argumentRange) {
-		parameterType = parameterType.Resolve(typeParameters)
-		if parameterType == nil {
-			parameterType = InvalidType
-		}
-	}
-
-	// Check that the type of the argument matches the type of the parameter.
-
-	checker.checkInvocationArgumentParameterTypeCompatibility(
-		argument.Expression,
-		argumentType,
-		parameterType,
-	)
 
 	return parameterType
 }
@@ -568,7 +622,7 @@ func (checker *Checker) reportInvalidTypeArgumentCount(
 func (checker *Checker) checkAndBindGenericTypeParameterTypeArguments(
 	typeArguments []*ast.TypeAnnotation,
 	typeParameters []*TypeParameter,
-	typeParameterTypes map[*TypeParameter]Type,
+	typeParameterTypes *TypeParameterTypeOrderedMap,
 ) {
 	for i := 0; i < len(typeArguments); i++ {
 		rawTypeArgument := typeArguments[i]
@@ -594,7 +648,7 @@ func (checker *Checker) checkAndBindGenericTypeParameterTypeArguments(
 
 		// Bind the type argument to the type parameter
 
-		typeParameterTypes[typeParameter] = ty
+		typeParameterTypes.Set(typeParameter, ty)
 	}
 }
 

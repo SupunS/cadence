@@ -828,7 +828,8 @@ func TestParseEmit(t *testing.T) {
 								Pos:        ast.Position{Line: 1, Column: 5, Offset: 5},
 							},
 						},
-						EndPos: ast.Position{Line: 1, Column: 7, Offset: 7},
+						ArgumentsStartPos: ast.Position{Line: 1, Column: 6, Offset: 6},
+						EndPos:            ast.Position{Line: 1, Column: 7, Offset: 7},
 					},
 					StartPos: ast.Position{Line: 1, Column: 0, Offset: 0},
 				},
@@ -1283,7 +1284,7 @@ func TestParseIfStatementInFunctionDeclaration(t *testing.T) {
 				StartPos: ast.Position{Offset: 6, Line: 2, Column: 5},
 			},
 		},
-		result.Declarations,
+		result.Declarations(),
 	)
 }
 
@@ -1401,7 +1402,7 @@ func TestParseIfStatementWithVariableDeclaration(t *testing.T) {
 				StartPos: ast.Position{Offset: 6, Line: 2, Column: 5},
 			},
 		},
-		result.Declarations,
+		result.Declarations(),
 	)
 }
 
@@ -1479,7 +1480,7 @@ func TestParseIfStatementNoElse(t *testing.T) {
 				StartPos: ast.Position{Offset: 6, Line: 2, Column: 5},
 			},
 		},
-		result.Declarations,
+		result.Declarations(),
 	)
 }
 
@@ -1571,7 +1572,7 @@ func TestParseWhileStatementInFunctionDeclaration(t *testing.T) {
 				StartPos: ast.Position{Offset: 6, Line: 2, Column: 5},
 			},
 		},
-		result.Declarations,
+		result.Declarations(),
 	)
 }
 
@@ -1641,7 +1642,7 @@ func TestParseForStatementInFunctionDeclaration(t *testing.T) {
 				StartPos: ast.Position{Offset: 6, Line: 2, Column: 5},
 			},
 		},
-		result.Declarations,
+		result.Declarations(),
 	)
 }
 
@@ -1712,7 +1713,7 @@ func TestParseAssignment(t *testing.T) {
 				StartPos: ast.Position{Offset: 6, Line: 2, Column: 5},
 			},
 		},
-		result.Declarations,
+		result.Declarations(),
 	)
 }
 
@@ -1832,7 +1833,7 @@ func TestParseAccessAssignment(t *testing.T) {
 				StartPos: ast.Position{Offset: 6, Line: 2, Column: 5},
 			},
 		},
-		result.Declarations,
+		result.Declarations(),
 	)
 }
 
@@ -1938,7 +1939,7 @@ func TestParseExpressionStatementWithAccess(t *testing.T) {
 				StartPos: ast.Position{Offset: 6, Line: 2, Column: 5},
 			},
 		},
-		result.Declarations,
+		result.Declarations(),
 	)
 }
 
@@ -2007,7 +2008,7 @@ func TestParseMoveStatement(t *testing.T) {
 				StartPos: ast.Position{Offset: 9, Line: 2, Column: 8},
 			},
 		},
-		result.Declarations,
+		result.Declarations(),
 	)
 }
 
@@ -2065,8 +2066,9 @@ func TestParseFunctionExpressionStatementAfterVariableDeclarationWithCreateExpre
 												Pos:        ast.Position{Offset: 46, Line: 3, Column: 26},
 											},
 										},
-										Arguments: nil,
-										EndPos:    ast.Position{Offset: 48, Line: 3, Column: 28},
+										Arguments:         nil,
+										ArgumentsStartPos: ast.Position{Offset: 47, Line: 3, Column: 27},
+										EndPos:            ast.Position{Offset: 48, Line: 3, Column: 28},
 									},
 									StartPos: ast.Position{Offset: 39, Line: 3, Column: 19},
 								},
@@ -2108,8 +2110,9 @@ func TestParseFunctionExpressionStatementAfterVariableDeclarationWithCreateExpre
 										},
 										StartPos: ast.Position{Offset: 61, Line: 4, Column: 11},
 									},
-									Arguments: nil,
-									EndPos:    ast.Position{Offset: 72, Line: 4, Column: 22},
+									Arguments:         nil,
+									ArgumentsStartPos: ast.Position{Offset: 71, Line: 4, Column: 21},
+									EndPos:            ast.Position{Offset: 72, Line: 4, Column: 22},
 								},
 							},
 						},
@@ -2124,7 +2127,7 @@ func TestParseFunctionExpressionStatementAfterVariableDeclarationWithCreateExpre
 				StartPos: ast.Position{Offset: 7, Line: 2, Column: 6},
 			},
 		},
-		result.Declarations,
+		result.Declarations(),
 	)
 }
 
@@ -2198,7 +2201,7 @@ func TestParseExpressionStatementAfterReturnStatement(t *testing.T) {
 				StartPos: ast.Position{Offset: 7, Line: 2, Column: 6},
 			},
 		},
-		result.Declarations,
+		result.Declarations(),
 	)
 }
 
@@ -2286,6 +2289,6 @@ func TestParseSwapStatementInFunctionDeclaration(t *testing.T) {
 				StartPos: ast.Position{Offset: 7, Line: 2, Column: 6},
 			},
 		},
-		result.Declarations,
+		result.Declarations(),
 	)
 }

@@ -37,11 +37,13 @@ func (checker *Checker) VisitMemberExpression(expression *ast.MemberExpression) 
 			}
 		}
 
-		checker.MemberAccesses.Put(
-			expression.AccessPos,
-			expression.EndPosition(),
-			memberAccessType,
-		)
+		if checker.positionInfoEnabled {
+			checker.MemberAccesses.Put(
+				expression.AccessPos,
+				expression.EndPosition(),
+				memberAccessType,
+			)
+		}
 	}
 
 	if member == nil {
@@ -67,7 +69,7 @@ func (checker *Checker) VisitMemberExpression(expression *ast.MemberExpression) 
 		if isInInitializer {
 			fieldInitialized := info.InitializedFieldMembers.Contains(accessedSelfMember)
 
-			field := info.FieldMembers[accessedSelfMember]
+			field, _ := info.FieldMembers.Get(accessedSelfMember)
 			if field != nil && !fieldInitialized {
 
 				checker.report(
@@ -82,6 +84,23 @@ func (checker *Checker) VisitMemberExpression(expression *ast.MemberExpression) 
 
 	memberType := member.TypeAnnotation.Type
 
+	// If the member access is for a function,
+	// return a function type for a bound function,
+	// i.e. one with a receiver
+
+	if functionType, ok := memberType.(*FunctionType); ok && functionType != nil {
+
+		receiverType := accessedType
+		if isOptional {
+			receiverType = receiverType.(*OptionalType).Type
+		}
+
+		// Copy the function type and add the receiver (the accessed type)
+		functionTypeWithReceiver := *functionType
+		functionTypeWithReceiver.ReceiverType = receiverType
+		memberType = &functionTypeWithReceiver
+	}
+
 	// If the member access is optional chaining, only wrap the result value
 	// in an optional, if it is not already an optional value
 
@@ -90,6 +109,7 @@ func (checker *Checker) VisitMemberExpression(expression *ast.MemberExpression) 
 			return &OptionalType{Type: memberType}
 		}
 	}
+
 	return memberType
 }
 
@@ -117,7 +137,7 @@ func (checker *Checker) visitMember(expression *ast.MemberExpression) (accessedT
 			checker.currentMemberExpression = previousMemberExpression
 		}()
 
-		accessedType = accessedExpression.Accept(checker).(Type)
+		accessedType = checker.VisitExpression(accessedExpression, nil)
 	}()
 
 	checker.checkUnusedExpressionResourceLoss(accessedType, accessedExpression)
@@ -143,8 +163,6 @@ func (checker *Checker) visitMember(expression *ast.MemberExpression) (accessedT
 		checker.checkResourceUseAfterInvalidation(accessedSelfMember, expression.Identifier)
 		checker.resources.AddUse(accessedSelfMember, expression.Identifier.Pos)
 	}
-
-	origins := checker.memberOrigins[accessedType]
 
 	identifier := expression.Identifier.Identifier
 	identifierStartPosition := expression.Identifier.StartPosition()
@@ -205,10 +223,14 @@ func (checker *Checker) visitMember(expression *ast.MemberExpression) (accessedT
 
 	if member == nil {
 		if !accessedType.IsInvalidType() {
+
+			checker.Elaboration.MemberExpressionExpectedTypes[expression] = checker.expectedType
+
 			checker.report(
 				&NotDeclaredMemberError{
-					Type: accessedType,
-					Name: identifier,
+					Type:       accessedType,
+					Name:       identifier,
+					Expression: expression,
 					Range: ast.Range{
 						StartPos: identifierStartPosition,
 						EndPos:   identifierEndPosition,
@@ -217,12 +239,16 @@ func (checker *Checker) visitMember(expression *ast.MemberExpression) (accessedT
 			)
 		}
 	} else {
-		origin := origins[identifier]
-		checker.Occurrences.Put(
-			identifierStartPosition,
-			identifierEndPosition,
-			origin,
-		)
+
+		if checker.positionInfoEnabled {
+			origins := checker.memberOrigins[accessedType]
+			origin := origins[identifier]
+			checker.Occurrences.Put(
+				identifierStartPosition,
+				identifierEndPosition,
+				origin,
+			)
+		}
 
 		// Check access and report if inaccessible
 
@@ -283,8 +309,12 @@ func (checker *Checker) isReadableMember(member *Member) bool {
 		// check if the current location is the same as the member's container location
 
 		location := member.ContainerType.(LocatedType).GetLocation()
-		if common.LocationsMatch(checker.Location, location) {
+		if common.LocationsInSameAccount(checker.Location, location) {
 			return true
+		}
+
+		if checker.memberAccountAccessHandler != nil {
+			return checker.memberAccountAccessHandler(checker, location)
 		}
 	}
 

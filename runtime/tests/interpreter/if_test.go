@@ -24,6 +24,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	. "github.com/onflow/cadence/runtime/tests/utils"
+
 	"github.com/onflow/cadence/runtime/interpreter"
 	"github.com/onflow/cadence/runtime/sema"
 	"github.com/onflow/cadence/runtime/tests/checker"
@@ -33,7 +35,7 @@ func TestInterpretIfStatement(t *testing.T) {
 
 	t.Parallel()
 
-	inter := parseCheckAndInterpretWithOptions(t,
+	inter, err := parseCheckAndInterpretWithOptions(t,
 		`
            pub fun testTrue(): Int {
                if true {
@@ -88,6 +90,7 @@ func TestInterpretIfStatement(t *testing.T) {
 			},
 		},
 	)
+	require.NoError(t, err)
 
 	for name, expected := range map[string]int64{
 		"testTrue":   2,
@@ -99,7 +102,9 @@ func TestInterpretIfStatement(t *testing.T) {
 			value, err := inter.Invoke(name)
 			require.NoError(t, err)
 
-			assert.Equal(t,
+			AssertValuesEqual(
+				t,
+				inter,
 				interpreter.NewIntValueFromInt64(expected),
 				value,
 			)
@@ -131,26 +136,34 @@ func TestInterpretIfStatementTestWithDeclaration(t *testing.T) {
 			interpreter.NewIntValueFromInt64(2),
 		)
 		require.NoError(t, err)
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.NewIntValueFromInt64(2),
 			value,
 		)
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.NewIntValueFromInt64(1),
-			inter.Globals["branch"].Value,
+			inter.Globals["branch"].GetValue(),
 		)
 	})
 
 	t.Run("nil", func(t *testing.T) {
 		value, err := inter.Invoke("test", interpreter.NilValue{})
 		require.NoError(t, err)
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.NewIntValueFromInt64(0),
 			value,
 		)
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.NewIntValueFromInt64(2),
-			inter.Globals["branch"].Value,
+			inter.Globals["branch"].GetValue(),
 		)
 	})
 }
@@ -178,26 +191,34 @@ func TestInterpretIfStatementTestWithDeclarationAndElse(t *testing.T) {
 			interpreter.NewIntValueFromInt64(2),
 		)
 		require.NoError(t, err)
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.NewIntValueFromInt64(2),
 			value,
 		)
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.NewIntValueFromInt64(1),
-			inter.Globals["branch"].Value,
+			inter.Globals["branch"].GetValue(),
 		)
 	})
 
 	t.Run("nil", func(t *testing.T) {
 		value, err := inter.Invoke("test", interpreter.NilValue{})
 		require.NoError(t, err)
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.NewIntValueFromInt64(0),
 			value,
 		)
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.NewIntValueFromInt64(2),
-			inter.Globals["branch"].Value,
+			inter.Globals["branch"].GetValue(),
 		)
 
 	})
@@ -227,15 +248,19 @@ func TestInterpretIfStatementTestWithDeclarationNestedOptionals(t *testing.T) {
 			interpreter.NewIntValueFromInt64(2),
 		)
 		require.NoError(t, err)
-		assert.Equal(t,
-			interpreter.NewSomeValueOwningNonCopying(
+		AssertValuesEqual(
+			t,
+			inter,
+			interpreter.NewSomeValueNonCopying(
 				interpreter.NewIntValueFromInt64(2),
 			),
 			value,
 		)
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.NewIntValueFromInt64(1),
-			inter.Globals["branch"].Value,
+			inter.Globals["branch"].GetValue(),
 		)
 	})
 
@@ -243,15 +268,19 @@ func TestInterpretIfStatementTestWithDeclarationNestedOptionals(t *testing.T) {
 		value, err := inter.Invoke("test", interpreter.NilValue{})
 		require.NoError(t, err)
 
-		assert.Equal(t,
-			interpreter.NewSomeValueOwningNonCopying(
+		AssertValuesEqual(
+			t,
+			inter,
+			interpreter.NewSomeValueNonCopying(
 				interpreter.NewIntValueFromInt64(0),
 			),
 			value,
 		)
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.NewIntValueFromInt64(2),
-			inter.Globals["branch"].Value,
+			inter.Globals["branch"].GetValue(),
 		)
 	})
 }
@@ -280,15 +309,19 @@ func TestInterpretIfStatementTestWithDeclarationNestedOptionalsExplicitAnnotatio
 			interpreter.NewIntValueFromInt64(2),
 		)
 		require.NoError(t, err)
-		assert.Equal(t,
-			interpreter.NewSomeValueOwningNonCopying(
+		AssertValuesEqual(
+			t,
+			inter,
+			interpreter.NewSomeValueNonCopying(
 				interpreter.NewIntValueFromInt64(2),
 			),
 			value,
 		)
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.NewIntValueFromInt64(1),
-			inter.Globals["branch"].Value,
+			inter.Globals["branch"].GetValue(),
 		)
 
 	})
@@ -296,15 +329,19 @@ func TestInterpretIfStatementTestWithDeclarationNestedOptionalsExplicitAnnotatio
 	t.Run("nil", func(t *testing.T) {
 		value, err := inter.Invoke("test", interpreter.NilValue{})
 		require.NoError(t, err)
-		assert.Equal(t,
-			interpreter.NewSomeValueOwningNonCopying(
+		AssertValuesEqual(
+			t,
+			inter,
+			interpreter.NewSomeValueNonCopying(
 				interpreter.NewIntValueFromInt64(0),
 			),
 			value,
 		)
-		assert.Equal(t,
+		AssertValuesEqual(
+			t,
+			inter,
 			interpreter.NewIntValueFromInt64(2),
-			inter.Globals["branch"].Value,
+			inter.Globals["branch"].GetValue(),
 		)
 	})
 }

@@ -19,31 +19,41 @@
 package integration
 
 import (
-	"github.com/onflow/flow-go-sdk"
-	"github.com/onflow/flow-go-sdk/client"
-	"google.golang.org/grpc"
+	"github.com/onflow/flow-cli/pkg/flowkit"
+	"github.com/onflow/flow-cli/pkg/flowkit/gateway"
+	"github.com/onflow/flow-cli/pkg/flowkit/output"
+	"github.com/onflow/flow-cli/pkg/flowkit/services"
+	"github.com/spf13/afero"
 )
 
 func (i *FlowIntegration) initialize(initializationOptions interface{}) error {
-
 	// Parse the configuration options sent from the client
 	conf, err := configFromInitializationOptions(initializationOptions)
 	if err != nil {
 		return err
 	}
 	i.config = conf
+	i.emulatorState = conf.emulatorState
+	i.activeAccount = conf.activeAccount
 
-	// add the service account as a usable account
-	i.serviceAddress = flow.ServiceAddress(flow.Emulator)
-	i.accounts[i.serviceAddress] = conf.ServiceAccountKey
+	configurationPaths := []string{conf.configPath}
 
-	i.flowClient, err = client.New(
-		i.config.EmulatorAddr,
-		grpc.WithInsecure(),
-	)
+	loader := &afero.Afero{Fs: afero.NewOsFs()}
+	state, err := flowkit.Load(configurationPaths, loader)
 	if err != nil {
 		return err
 	}
+
+	host := state.Networks().ByName("emulator").Host
+	logger := output.NewStdoutLogger(output.NoneLog)
+
+	grpcGateway, err := gateway.NewGrpcGateway(host)
+	if err != nil {
+		return err
+	}
+
+	i.sharedServices = services.NewServices(grpcGateway, state, logger)
+	i.state = state
 
 	return nil
 }

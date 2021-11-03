@@ -34,6 +34,7 @@ type Error struct {
 	Err      error
 	Location common.Location
 	Codes    map[common.LocationID]string
+	Programs map[common.LocationID]*ast.Program
 }
 
 func newError(err error, context Context) Error {
@@ -41,6 +42,7 @@ func newError(err error, context Context) Error {
 		Err:      err,
 		Location: context.Location,
 		Codes:    context.codes,
+		Programs: context.programs,
 	}
 }
 
@@ -68,6 +70,19 @@ type ComputationLimitExceededError struct {
 func (e ComputationLimitExceededError) Error() string {
 	return fmt.Sprintf(
 		"computation limited exceeded: %d",
+		e.Limit,
+	)
+}
+
+// CallStackLimitExceededError
+
+type CallStackLimitExceededError struct {
+	Limit uint64
+}
+
+func (e CallStackLimitExceededError) Error() string {
+	return fmt.Sprintf(
+		"call stack limit exceeded: %d",
 		e.Limit,
 	)
 }
@@ -120,7 +135,7 @@ func (e InvalidTransactionAuthorizerCountError) Error() string {
 }
 
 // InvalidEntryPointArgumentError
-
+//
 type InvalidEntryPointArgumentError struct {
 	Index int
 	Err   error
@@ -131,26 +146,36 @@ func (e *InvalidEntryPointArgumentError) Unwrap() error {
 }
 
 func (e *InvalidEntryPointArgumentError) Error() string {
-	return fmt.Sprintf("invalid argument at index %d", e.Index)
-}
-
-// InvalidTypeAssignmentError
-
-type InvalidTypeAssignmentError struct {
-	Value interpreter.Value
-	Type  sema.Type
-	Err   error
-}
-
-func (e *InvalidTypeAssignmentError) Unwrap() error {
-	return e.Err
-}
-
-func (e *InvalidTypeAssignmentError) Error() string {
 	return fmt.Sprintf(
-		"cannot assign type `%s` to %s",
-		e.Type.QualifiedString(),
-		e.Value,
+		"invalid argument at index %d: %s",
+		e.Index,
+		e.Err.Error(),
+	)
+}
+
+// MalformedValueError
+
+type MalformedValueError struct {
+	ExpectedType sema.Type
+}
+
+func (e *MalformedValueError) Error() string {
+	return fmt.Sprintf(
+		"value does not conform to expected type `%s`",
+		e.ExpectedType.QualifiedString(),
+	)
+}
+
+// InvalidValueTypeError
+//
+type InvalidValueTypeError struct {
+	ExpectedType sema.Type
+}
+
+func (e *InvalidValueTypeError) Error() string {
+	return fmt.Sprintf(
+		"expected value of type `%s`",
+		e.ExpectedType.QualifiedString(),
 	)
 }
 
@@ -189,18 +214,43 @@ func (e *ScriptParameterTypeNotStorableError) Error() string {
 	)
 }
 
-// ParsingCheckingError provides extra information about the state of the environment
-// when a parsing or a checking error occurred
+// ScriptParameterTypeNotImportableError is an error that is reported for
+// script parameter types that are not importable.
+//
+// For example, the type `Int` is an importable type,
+// whereas a function-type is not.
+//
+type ScriptParameterTypeNotImportableError struct {
+	Type sema.Type
+}
+
+func (e *ScriptParameterTypeNotImportableError) Error() string {
+	return fmt.Sprintf(
+		"parameter type is a non-importable type: `%s`",
+		e.Type.QualifiedString(),
+	)
+}
+
+// ArgumentNotImportableError is an error that is reported for
+// script arguments that belongs to non-importable types.
+//
+type ArgumentNotImportableError struct {
+	Type interpreter.DynamicType
+}
+
+func (e *ArgumentNotImportableError) Error() string {
+	return fmt.Sprintf(
+		"argument type is not importable: `%s`",
+		e.Type,
+	)
+}
+
+// ParsingCheckingError is an error wrapper
+// for a parsing or a checking error at a specific location
 //
 type ParsingCheckingError struct {
-	Err          error
-	StorageCache Cache
-	Code         []byte
-	Location     common.Location
-	Options      []sema.Option
-	UseCache     bool
-	Program      *ast.Program
-	Checker      *sema.Checker
+	Err      error
+	Location common.Location
 }
 
 func (e *ParsingCheckingError) ChildErrors() []error {
@@ -211,6 +261,225 @@ func (e *ParsingCheckingError) Error() string {
 	return e.Err.Error()
 }
 
-func (e ParsingCheckingError) Unwrap() error {
+func (e *ParsingCheckingError) Unwrap() error {
 	return e.Err
+}
+
+func (e *ParsingCheckingError) ImportLocation() common.Location {
+	return e.Location
+}
+
+// InvalidContractDeploymentError
+//
+type InvalidContractDeploymentError struct {
+	Err error
+	interpreter.LocationRange
+}
+
+func (e *InvalidContractDeploymentError) Error() string {
+	return fmt.Sprintf("cannot deploy invalid contract: %s", e.Err.Error())
+}
+
+func (e *InvalidContractDeploymentError) ChildErrors() []error {
+	return []error{
+		&InvalidContractDeploymentOriginError{
+			LocationRange: e.LocationRange,
+		},
+		e.Err,
+	}
+}
+
+func (e *InvalidContractDeploymentError) Unwrap() error {
+	return e.Err
+}
+
+// ContractRemovalError
+//
+type ContractRemovalError struct {
+	Name string
+	interpreter.LocationRange
+}
+
+func (e *ContractRemovalError) Error() string {
+	return fmt.Sprintf("cannot remove contract `%s`", e.Name)
+}
+
+// InvalidContractDeploymentOriginError
+//
+type InvalidContractDeploymentOriginError struct {
+	interpreter.LocationRange
+}
+
+func (*InvalidContractDeploymentOriginError) Error() string {
+	return "cannot deploy invalid contract"
+}
+
+// Contract update related errors
+
+// ContractUpdateError is reported upon any invalid update to a contract or contract interface.
+// It contains all the errors reported during the update validation.
+type ContractUpdateError struct {
+	ContractName string
+	Errors       []error
+	Location     common.Location
+}
+
+func (e *ContractUpdateError) Error() string {
+	return fmt.Sprintf("cannot update contract `%s`", e.ContractName)
+}
+
+func (e *ContractUpdateError) ChildErrors() []error {
+	return e.Errors
+}
+
+func (e *ContractUpdateError) ImportLocation() common.Location {
+	return e.Location
+}
+
+// FieldMismatchError is reported during a contract update, when a type of a field
+// does not match the existing type of the same field.
+type FieldMismatchError struct {
+	DeclName  string
+	FieldName string
+	Err       error
+	ast.Range
+}
+
+func (e *FieldMismatchError) Error() string {
+	return fmt.Sprintf("mismatching field `%s` in `%s`",
+		e.FieldName,
+		e.DeclName,
+	)
+}
+
+func (e *FieldMismatchError) SecondaryError() string {
+	return e.Err.Error()
+}
+
+// TypeMismatchError is reported during a contract update, when a type of the new program
+// does not match the existing type.
+type TypeMismatchError struct {
+	ExpectedType ast.Type
+	FoundType    ast.Type
+	ast.Range
+}
+
+func (e *TypeMismatchError) Error() string {
+	return fmt.Sprintf("incompatible type annotations. expected `%s`, found `%s`",
+		e.ExpectedType,
+		e.FoundType,
+	)
+}
+
+// ExtraneousFieldError is reported during a contract update, when an updated composite
+// declaration has more fields than the existing declaration.
+type ExtraneousFieldError struct {
+	DeclName  string
+	FieldName string
+	ast.Range
+}
+
+func (e *ExtraneousFieldError) Error() string {
+	return fmt.Sprintf("found new field `%s` in `%s`",
+		e.FieldName,
+		e.DeclName,
+	)
+}
+
+// ContractNotFoundError is reported during a contract update, if no contract can be
+// found in the program.
+type ContractNotFoundError struct {
+	ast.Range
+}
+
+func (e *ContractNotFoundError) Error() string {
+	return "cannot find any contract or contract interface"
+}
+
+// InvalidDeclarationKindChangeError is reported during a contract update, when an attempt is made
+// to convert an existing contract to a contract interface, or vise versa.
+type InvalidDeclarationKindChangeError struct {
+	Name    string
+	OldKind common.DeclarationKind
+	NewKind common.DeclarationKind
+	ast.Range
+}
+
+func (e *InvalidDeclarationKindChangeError) Error() string {
+	return fmt.Sprintf("trying to convert %s `%s` to a %s", e.OldKind.Name(), e.Name, e.NewKind.Name())
+}
+
+// ConformanceMismatchError is reported during a contract update, when the enum conformance of the new program
+// does not match the existing one.
+type ConformanceMismatchError struct {
+	DeclName string
+	Err      error
+	ast.Range
+}
+
+func (e *ConformanceMismatchError) Error() string {
+	return fmt.Sprintf("conformances does not match in `%s`", e.DeclName)
+}
+
+func (e *ConformanceMismatchError) SecondaryError() string {
+	return e.Err.Error()
+}
+
+// ConformanceCountMismatchError is reported during a contract update, when the conformance count
+// does not match the existing conformance count.
+type ConformanceCountMismatchError struct {
+	Expected int
+	Found    int
+	ast.Range
+}
+
+func (e *ConformanceCountMismatchError) Error() string {
+	return fmt.Sprintf("conformances count does not match: expected %d, found %d", e.Expected, e.Found)
+}
+
+// EnumCaseMismatchError is reported during an enum update, when an updated enum case
+// does not match the existing enum case.
+type EnumCaseMismatchError struct {
+	ExpectedName string
+	FoundName    string
+	ast.Range
+}
+
+func (e *EnumCaseMismatchError) Error() string {
+	return fmt.Sprintf("mismatching enum case: expected `%s`, found `%s`",
+		e.ExpectedName,
+		e.FoundName,
+	)
+}
+
+// MissingEnumCasesError is reported during an enum update, if any enum cases are removed
+// from an existing enum.
+type MissingEnumCasesError struct {
+	DeclName string
+	Expected int
+	Found    int
+	ast.Range
+}
+
+func (e *MissingEnumCasesError) Error() string {
+	return fmt.Sprintf(
+		"missing cases in enum `%s`: expected %d or more, found %d",
+		e.DeclName,
+		e.Expected,
+		e.Found,
+	)
+}
+
+// MissingCompositeDeclarationError is reported during an contract update, if an existing
+// composite declaration (struct or struct interface) is removed.
+type MissingCompositeDeclarationError struct {
+	Name string
+	ast.Range
+}
+
+func (e *MissingCompositeDeclarationError) Error() string {
+	return fmt.Sprintf(
+		"missing composite declaration `%s`",
+		e.Name,
+	)
 }

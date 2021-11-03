@@ -182,11 +182,11 @@ func TestCheckReferenceExpressionWithNonCompositeResultType(t *testing.T) {
 
 	require.NoError(t, err)
 
-	refValueType := checker.GlobalValues["ref"].Type
+	refValueType := RequireGlobalValue(t, checker.Elaboration, "ref")
 
 	assert.Equal(t,
 		&sema.ReferenceType{
-			Type: &sema.IntType{},
+			Type: sema.IntType,
 		},
 		refValueType,
 	)
@@ -209,9 +209,9 @@ func TestCheckReferenceExpressionWithCompositeResultType(t *testing.T) {
 
 		require.NoError(t, err)
 
-		rType := checker.GlobalTypes["R"].Type
+		rType := RequireGlobalType(t, checker.Elaboration, "R")
 
-		refValueType := checker.GlobalValues["ref"].Type
+		refValueType := RequireGlobalValue(t, checker.Elaboration, "ref")
 
 		assert.Equal(t,
 			&sema.ReferenceType{
@@ -234,9 +234,9 @@ func TestCheckReferenceExpressionWithCompositeResultType(t *testing.T) {
 
 		require.NoError(t, err)
 
-		sType := checker.GlobalTypes["S"].Type
+		sType := RequireGlobalType(t, checker.Elaboration, "S")
 
-		refValueType := checker.GlobalValues["ref"].Type
+		refValueType := RequireGlobalValue(t, checker.Elaboration, "ref")
 
 		assert.Equal(t,
 			&sema.ReferenceType{
@@ -265,7 +265,7 @@ func TestCheckReferenceExpressionWithInterfaceResultType(t *testing.T) {
 
 		errs := ExpectCheckerErrors(t, err, 1)
 
-		assert.IsType(t, &sema.TypeMismatchError{}, errs[0])
+		assert.IsType(t, &sema.InvalidInterfaceTypeError{}, errs[0])
 	})
 
 	t.Run("struct", func(t *testing.T) {
@@ -282,7 +282,7 @@ func TestCheckReferenceExpressionWithInterfaceResultType(t *testing.T) {
 
 		errs := ExpectCheckerErrors(t, err, 1)
 
-		assert.IsType(t, &sema.TypeMismatchError{}, errs[0])
+		assert.IsType(t, &sema.InvalidInterfaceTypeError{}, errs[0])
 	})
 }
 
@@ -926,9 +926,9 @@ func TestCheckReferenceExpressionReferenceType(t *testing.T) {
 
 			require.NoError(t, err)
 
-			tType := checker.GlobalTypes["T"].Type
+			tType := RequireGlobalType(t, checker.Elaboration, "T")
 
-			refValueType := checker.GlobalValues["ref"].Type
+			refValueType := RequireGlobalValue(t, checker.Elaboration, "ref")
 
 			require.Equal(t,
 				&sema.ReferenceType{
@@ -967,8 +967,8 @@ func TestCheckReferenceExpressionOfOptional(t *testing.T) {
 
 		errs := ExpectCheckerErrors(t, err, 2)
 
-		assert.IsType(t, &sema.OptionalTypeReferenceError{}, errs[0])
-		assert.IsType(t, &sema.TypeMismatchError{}, errs[1])
+		assert.IsType(t, &sema.TypeMismatchError{}, errs[0])
+		assert.IsType(t, &sema.OptionalTypeReferenceError{}, errs[1])
 	})
 
 	t.Run("struct", func(t *testing.T) {
@@ -984,8 +984,8 @@ func TestCheckReferenceExpressionOfOptional(t *testing.T) {
 
 		errs := ExpectCheckerErrors(t, err, 2)
 
-		assert.IsType(t, &sema.OptionalTypeReferenceError{}, errs[0])
-		assert.IsType(t, &sema.TypeMismatchError{}, errs[1])
+		assert.IsType(t, &sema.TypeMismatchError{}, errs[0])
+		assert.IsType(t, &sema.OptionalTypeReferenceError{}, errs[1])
 	})
 
 	t.Run("non-composite", func(t *testing.T) {
@@ -999,8 +999,23 @@ func TestCheckReferenceExpressionOfOptional(t *testing.T) {
 
 		errs := ExpectCheckerErrors(t, err, 2)
 
-		assert.IsType(t, &sema.OptionalTypeReferenceError{}, errs[0])
-		assert.IsType(t, &sema.TypeMismatchError{}, errs[1])
+		assert.IsType(t, &sema.TypeMismatchError{}, errs[0])
+		assert.IsType(t, &sema.OptionalTypeReferenceError{}, errs[1])
+	})
+
+	t.Run("as optional", func(t *testing.T) {
+
+		t.Parallel()
+
+		_, err := ParseAndCheck(t, `
+          let i: Int? = 1
+          let ref = &i as &Int?
+        `)
+
+		errs := ExpectCheckerErrors(t, err, 2)
+
+		assert.IsType(t, &sema.NonReferenceTypeReferenceError{}, errs[0])
+		assert.IsType(t, &sema.OptionalTypeReferenceError{}, errs[1])
 	})
 }
 
@@ -1014,8 +1029,8 @@ func TestCheckInvalidReferenceExpressionNonReferenceAmbiguous(t *testing.T) {
 
 	errs := ExpectCheckerErrors(t, err, 2)
 
-	assert.IsType(t, &sema.NotDeclaredError{}, errs[0])
-	assert.IsType(t, &sema.AmbiguousRestrictedTypeError{}, errs[1])
+	assert.IsType(t, &sema.AmbiguousRestrictedTypeError{}, errs[0])
+	assert.IsType(t, &sema.NotDeclaredError{}, errs[1])
 }
 
 func TestCheckInvalidReferenceExpressionNonReferenceAnyResource(t *testing.T) {
@@ -1028,8 +1043,8 @@ func TestCheckInvalidReferenceExpressionNonReferenceAnyResource(t *testing.T) {
 
 	errs := ExpectCheckerErrors(t, err, 2)
 
-	assert.IsType(t, &sema.NotDeclaredError{}, errs[0])
-	assert.IsType(t, &sema.NonReferenceTypeReferenceError{}, errs[1])
+	assert.IsType(t, &sema.NonReferenceTypeReferenceError{}, errs[0])
+	assert.IsType(t, &sema.NotDeclaredError{}, errs[1])
 }
 
 func TestCheckInvalidReferenceExpressionNonReferenceAnyStruct(t *testing.T) {
@@ -1042,6 +1057,75 @@ func TestCheckInvalidReferenceExpressionNonReferenceAnyStruct(t *testing.T) {
 
 	errs := ExpectCheckerErrors(t, err, 2)
 
-	assert.IsType(t, &sema.NotDeclaredError{}, errs[0])
-	assert.IsType(t, &sema.NonReferenceTypeReferenceError{}, errs[1])
+	assert.IsType(t, &sema.NonReferenceTypeReferenceError{}, errs[0])
+	assert.IsType(t, &sema.NotDeclaredError{}, errs[1])
+}
+
+func TestCheckInvalidDictionaryAccessReference(t *testing.T) {
+
+	t.Parallel()
+
+	_, err := ParseAndCheck(t, `
+      let xs: {Int: Int} = {}
+      let ref = &xs[1] as &String
+    `)
+
+	errs := ExpectCheckerErrors(t, err, 1)
+
+	require.IsType(t, &sema.TypeMismatchError{}, errs[0])
+
+	typeMismatchError := errs[0].(*sema.TypeMismatchError)
+	assert.Equal(t, 17, typeMismatchError.StartPos.Column)
+	assert.Equal(t, 21, typeMismatchError.EndPos.Column)
+}
+
+func TestCheckReferenceTypeImplicitConformance(t *testing.T) {
+
+	t.Parallel()
+
+	t.Run("valid", func(t *testing.T) {
+
+		t.Parallel()
+
+		_, err := ParseAndCheck(t, `
+
+          contract interface CI {
+              struct S {}
+          }
+
+          contract C: CI {
+              struct S {}
+          }
+
+          let s = C.S()
+
+          let refS: &CI.S = &s as &C.S
+        `)
+
+		require.NoError(t, err)
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+
+		t.Parallel()
+
+		_, err := ParseAndCheck(t, `
+
+          contract interface CI {
+              struct S {}
+          }
+
+          contract C {
+              struct S {}
+          }
+
+          let s = C.S()
+
+          let refS: &CI.S = &s as &C.S
+        `)
+
+		errs := ExpectCheckerErrors(t, err, 1)
+
+		require.IsType(t, &sema.TypeMismatchError{}, errs[0])
+	})
 }

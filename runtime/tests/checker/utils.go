@@ -19,9 +19,12 @@
 package checker
 
 import (
+	"flag"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/go-test/deep"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -31,6 +34,10 @@ import (
 	"github.com/onflow/cadence/runtime/sema"
 	"github.com/onflow/cadence/runtime/tests/utils"
 )
+
+func init() {
+	deep.MaxDepth = 20
+}
 
 func ParseAndCheck(t *testing.T, code string) (*sema.Checker, error) {
 	return ParseAndCheckWithOptions(t, code, ParseAndCheckOptions{})
@@ -42,8 +49,14 @@ type ParseAndCheckOptions struct {
 	Options          []sema.Option
 }
 
+var checkConcurrently = flag.Int(
+	"cadence.checkConcurrently",
+	0,
+	"check programs N times, concurrently. useful for detecting non-determinism, and data races with the -race flag",
+)
+
 func ParseAndCheckWithOptions(
-	t *testing.T,
+	t testing.TB,
 	code string,
 	options ParseAndCheckOptions,
 ) (*sema.Checker, error) {
@@ -65,23 +78,78 @@ func ParseAndCheckWithOptions(
 		return nil, err
 	}
 
-	checkerOptions := append(
-		[]sema.Option{
-			sema.WithAccessCheckMode(sema.AccessCheckModeNotSpecifiedUnrestricted),
-		},
-		options.Options...,
-	)
+	check := func() (*sema.Checker, error) {
 
-	checker, err := sema.NewChecker(
-		program,
-		options.Location,
-		checkerOptions...,
-	)
-	if err != nil {
+		checkerOptions := append(
+			[]sema.Option{
+				sema.WithAccessCheckMode(sema.AccessCheckModeNotSpecifiedUnrestricted),
+			},
+			options.Options...,
+		)
+
+		checker, err := sema.NewChecker(
+			program,
+			options.Location,
+			checkerOptions...,
+		)
+		if err != nil {
+			return checker, err
+		}
+
+		err = checker.Check()
+
 		return checker, err
 	}
 
-	err = checker.Check()
+	var checker *sema.Checker
+
+	if *checkConcurrently > 1 {
+
+		// Run 10 additional checks in parallel,
+		// and ensure all reported errors are equal.
+		//
+		// This is useful to detect non-determinism ,
+		// and when combined with Go testing's race detector,
+		// allows detecting data race conditions.
+
+		concurrency := *checkConcurrently
+
+		type result struct {
+			checker *sema.Checker
+			err     error
+		}
+
+		var wg sync.WaitGroup
+		results := make(chan result, concurrency)
+		for i := 0; i < concurrency; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				checker, err := check()
+				results <- result{
+					checker: checker,
+					err:     err,
+				}
+			}()
+		}
+		wg.Wait()
+		close(results)
+
+		firstResult := <-results
+		checker = firstResult.checker
+		err = firstResult.err
+
+		for otherResult := range results {
+			diff := deep.Equal(err, otherResult.err)
+			if diff != nil {
+				t.Error(diff)
+			}
+		}
+
+	} else {
+		checker, err = check()
+	}
+
 	return checker, err
 }
 
@@ -93,7 +161,7 @@ func ExpectCheckerErrors(t *testing.T, err error, count int) []error {
 	require.Error(t, err)
 
 	var checkerErr *sema.CheckerError
-	utils.RequireErrorAs(t, err, &checkerErr)
+	require.ErrorAs(t, err, &checkerErr)
 
 	errs := checkerErr.Errors
 
@@ -106,4 +174,16 @@ func ExpectCheckerErrors(t *testing.T, err error, count int) []error {
 	}
 
 	return errs
+}
+
+func RequireGlobalType(t *testing.T, elaboration *sema.Elaboration, name string) sema.Type {
+	variable, ok := elaboration.GlobalTypes.Get(name)
+	require.True(t, ok, "global type '%s' missing", name)
+	return variable.Type
+}
+
+func RequireGlobalValue(t *testing.T, elaboration *sema.Elaboration, name string) sema.Type {
+	variable, ok := elaboration.GlobalValues.Get(name)
+	require.True(t, ok, "global value '%s' missing", name)
+	return variable.Type
 }

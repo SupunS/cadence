@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/onflow/cadence/runtime/ast"
 	"github.com/onflow/cadence/runtime/common"
 	"github.com/onflow/cadence/runtime/interpreter"
 	"github.com/onflow/cadence/runtime/sema"
@@ -71,14 +72,14 @@ func TestInterpretStatementHandler(t *testing.T) {
 		checker.ParseAndCheckOptions{
 			Options: []sema.Option{
 				sema.WithImportHandler(
-					func(checker *sema.Checker, location common.Location) (sema.Import, *sema.CheckerError) {
+					func(_ *sema.Checker, importedLocation common.Location, _ ast.Range) (sema.Import, error) {
 						assert.Equal(t,
 							utils.ImportedLocation,
-							location,
+							importedLocation,
 						)
 
-						return sema.CheckerImport{
-							Checker: importedChecker,
+						return sema.ElaborationImport{
+							Elaboration: importedChecker.Elaboration,
 						}, nil
 					},
 				),
@@ -96,22 +97,23 @@ func TestInterpretStatementHandler(t *testing.T) {
 	var nextInterpreterID int
 	interpreterIDs := map[*interpreter.Interpreter]int{}
 
+	storage := interpreter.NewInMemoryStorage()
 	inter, err := interpreter.NewInterpreter(
-		importingChecker,
+		interpreter.ProgramFromChecker(importingChecker),
+		importingChecker.Location,
+		interpreter.WithStorage(storage),
 		interpreter.WithOnStatementHandler(
-			func(statement *interpreter.Statement) {
-				inter := statement.Interpreter
-
-				id, ok := interpreterIDs[inter]
+			func(interpreter *interpreter.Interpreter, statement ast.Statement) {
+				id, ok := interpreterIDs[interpreter]
 				if !ok {
 					id = nextInterpreterID
 					nextInterpreterID++
-					interpreterIDs[inter] = id
+					interpreterIDs[interpreter] = id
 				}
 
 				occurrences = append(occurrences, occurrence{
 					interpreterID: id,
-					line:          statement.Statement.StartPosition().Line,
+					line:          statement.StartPosition().Line,
 				})
 			},
 		),
@@ -121,8 +123,15 @@ func TestInterpretStatementHandler(t *testing.T) {
 					utils.ImportedLocation,
 					location,
 				)
-				return interpreter.ProgramImport{
-					Program: importedChecker.Program,
+
+				program := interpreter.ProgramFromChecker(importedChecker)
+				subInterpreter, err := inter.NewSubInterpreter(program, location)
+				if err != nil {
+					panic(err)
+				}
+
+				return interpreter.InterpreterImport{
+					Interpreter: subInterpreter,
 				}
 			},
 		),
@@ -191,14 +200,14 @@ func TestInterpretLoopIterationHandler(t *testing.T) {
 		checker.ParseAndCheckOptions{
 			Options: []sema.Option{
 				sema.WithImportHandler(
-					func(checker *sema.Checker, location common.Location) (sema.Import, *sema.CheckerError) {
+					func(_ *sema.Checker, importedLocation common.Location, _ ast.Range) (sema.Import, error) {
 						assert.Equal(t,
 							utils.ImportedLocation,
-							location,
+							importedLocation,
 						)
 
-						return sema.CheckerImport{
-							Checker: importedChecker,
+						return sema.ElaborationImport{
+							Elaboration: importedChecker.Elaboration,
 						}, nil
 					},
 				),
@@ -216,30 +225,43 @@ func TestInterpretLoopIterationHandler(t *testing.T) {
 	var nextInterpreterID int
 	interpreterIDs := map[*interpreter.Interpreter]int{}
 
+	storage := interpreter.NewInMemoryStorage()
+
 	inter, err := interpreter.NewInterpreter(
-		importingChecker,
-		interpreter.WithOnLoopIterationHandler(func(inter *interpreter.Interpreter, line int) {
+		interpreter.ProgramFromChecker(importingChecker),
+		importingChecker.Location,
+		interpreter.WithStorage(storage),
+		interpreter.WithOnLoopIterationHandler(
+			func(inter *interpreter.Interpreter, line int) {
 
-			id, ok := interpreterIDs[inter]
-			if !ok {
-				id = nextInterpreterID
-				nextInterpreterID++
-				interpreterIDs[inter] = id
-			}
+				id, ok := interpreterIDs[inter]
+				if !ok {
+					id = nextInterpreterID
+					nextInterpreterID++
+					interpreterIDs[inter] = id
+				}
 
-			occurrences = append(occurrences, occurrence{
-				interpreterID: id,
-				line:          line,
-			})
-		}),
+				occurrences = append(occurrences, occurrence{
+					interpreterID: id,
+					line:          line,
+				})
+			},
+		),
 		interpreter.WithImportLocationHandler(
 			func(inter *interpreter.Interpreter, location common.Location) interpreter.Import {
 				assert.Equal(t,
 					utils.ImportedLocation,
 					location,
 				)
-				return interpreter.ProgramImport{
-					Program: importedChecker.Program,
+
+				program := interpreter.ProgramFromChecker(importedChecker)
+				subInterpreter, err := inter.NewSubInterpreter(program, location)
+				if err != nil {
+					panic(err)
+				}
+
+				return interpreter.InterpreterImport{
+					Interpreter: subInterpreter,
 				}
 			},
 		),
@@ -318,14 +340,14 @@ func TestInterpretFunctionInvocationHandler(t *testing.T) {
 		checker.ParseAndCheckOptions{
 			Options: []sema.Option{
 				sema.WithImportHandler(
-					func(checker *sema.Checker, location common.Location) (sema.Import, *sema.CheckerError) {
+					func(_ *sema.Checker, importedLocation common.Location, _ ast.Range) (sema.Import, error) {
 						assert.Equal(t,
 							utils.ImportedLocation,
-							location,
+							importedLocation,
 						)
 
-						return sema.CheckerImport{
-							Checker: importedChecker,
+						return sema.ElaborationImport{
+							Elaboration: importedChecker.Elaboration,
 						}, nil
 					},
 				),
@@ -343,8 +365,11 @@ func TestInterpretFunctionInvocationHandler(t *testing.T) {
 	var nextInterpreterID int
 	interpreterIDs := map[*interpreter.Interpreter]int{}
 
+	storage := interpreter.NewInMemoryStorage()
 	inter, err := interpreter.NewInterpreter(
-		importingChecker,
+		interpreter.ProgramFromChecker(importingChecker),
+		importingChecker.Location,
+		interpreter.WithStorage(storage),
 		interpreter.WithOnFunctionInvocationHandler(
 			func(inter *interpreter.Interpreter, line int) {
 
@@ -367,8 +392,15 @@ func TestInterpretFunctionInvocationHandler(t *testing.T) {
 					utils.ImportedLocation,
 					location,
 				)
-				return interpreter.ProgramImport{
-					Program: importedChecker.Program,
+
+				program := interpreter.ProgramFromChecker(importedChecker)
+				subInterpreter, err := inter.NewSubInterpreter(program, location)
+				if err != nil {
+					panic(err)
+				}
+
+				return interpreter.InterpreterImport{
+					Interpreter: subInterpreter,
 				}
 			},
 		),

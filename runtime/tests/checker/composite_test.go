@@ -67,9 +67,14 @@ func TestCheckInvalidCompositeRedeclaringType(t *testing.T) {
 				),
 			)
 
-			errs := ExpectCheckerErrors(t, err, 1)
+			// Two redeclaration errors:
+			// - One for the type
+			// - Another for the value
+
+			errs := ExpectCheckerErrors(t, err, 2)
 
 			assert.IsType(t, &sema.RedeclarationError{}, errs[0])
+			assert.IsType(t, &sema.RedeclarationError{}, errs[1])
 		})
 	}
 }
@@ -1193,13 +1198,13 @@ func TestCheckInvalidCompositeFunctionAssignment(t *testing.T) {
 
 			errs := ExpectCheckerErrors(t, err, 2)
 
-			assert.IsType(t, &sema.TypeMismatchError{}, errs[0])
-
-			require.IsType(t, &sema.AssignmentToConstantMemberError{}, errs[1])
+			require.IsType(t, &sema.AssignmentToConstantMemberError{}, errs[0])
 			assert.Equal(t,
 				"foo",
-				errs[1].(*sema.AssignmentToConstantMemberError).Name,
+				errs[0].(*sema.AssignmentToConstantMemberError).Name,
 			)
+
+			assert.IsType(t, &sema.TypeMismatchError{}, errs[1])
 		})
 	}
 }
@@ -1733,7 +1738,7 @@ func TestCheckCompositeConstructorUseInInitializerAndFunction(t *testing.T) {
 
 			require.NoError(t, err)
 
-			testType := checker.GlobalTypes["Test"].Type
+			testType := RequireGlobalType(t, checker.Elaboration, "Test")
 
 			assert.IsType(t, &sema.CompositeType{}, testType)
 
@@ -1744,8 +1749,8 @@ func TestCheckCompositeConstructorUseInInitializerAndFunction(t *testing.T) {
 				structureType.Identifier,
 			)
 
-			testFunctionMember := structureType.Members["test"]
-
+			testFunctionMember, ok := structureType.Members.Get("test")
+			require.True(t, ok)
 			assert.IsType(t, &sema.FunctionType{}, testFunctionMember.TypeAnnotation.Type)
 
 			testFunctionType := testFunctionMember.TypeAnnotation.Type.(*sema.FunctionType)
@@ -2232,7 +2237,7 @@ func TestCheckCompositeFieldOrder(t *testing.T) {
 
 			require.NoError(t, err)
 
-			testType := checker.GlobalTypes["Test"].Type.(*sema.CompositeType)
+			testType := RequireGlobalType(t, checker.Elaboration, "Test").(*sema.CompositeType)
 
 			switch kind {
 			case common.CompositeKindContract:

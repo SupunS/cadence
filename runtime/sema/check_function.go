@@ -96,6 +96,7 @@ func (checker *Checker) declareFunctionDeclaration(
 	_, err := checker.valueActivations.Declare(variableDeclaration{
 		identifier:               declaration.Identifier.Identifier,
 		ty:                       functionType,
+		docString:                declaration.DocString,
 		access:                   declaration.Access,
 		kind:                     common.DeclarationKindFunction,
 		pos:                      declaration.Identifier.Pos,
@@ -105,7 +106,9 @@ func (checker *Checker) declareFunctionDeclaration(
 	})
 	checker.report(err)
 
-	checker.recordFunctionDeclarationOrigin(declaration, functionType)
+	if checker.positionInfoEnabled {
+		checker.recordFunctionDeclarationOrigin(declaration, functionType)
+	}
 }
 
 func (checker *Checker) checkFunction(
@@ -141,17 +144,25 @@ func (checker *Checker) checkFunction(
 	checker.functionActivations.WithFunction(
 		functionType,
 		checker.valueActivations.Depth(),
-		func() {
+		func(functionActivation *FunctionActivation) {
 			// NOTE: important to begin scope in function activation, so that
 			//   variable declarations will have proper function activation
 			//   associated to it, and declare parameters in this new scope
 
+			var endPosGetter func() ast.Position
+			if functionBlock != nil {
+				endPosGetter = functionBlock.EndPosition
+			}
+
 			checker.enterValueScope()
-			defer checker.leaveValueScope(checkResourceLoss)
+			defer func() {
+				checkResourceLoss := checkResourceLoss &&
+					!functionActivation.ReturnInfo.DefinitelyHalted
+				checker.leaveValueScope(endPosGetter, checkResourceLoss)
+			}()
 
 			checker.declareParameters(parameterList, functionType.Parameters)
 
-			functionActivation := checker.functionActivations.Current()
 			functionActivation.InitializationInfo = initializationInfo
 
 			if functionBlock != nil {
@@ -172,6 +183,23 @@ func (checker *Checker) checkFunction(
 			}
 		},
 	)
+
+	if checker.positionInfoEnabled && functionBlock != nil {
+		startPos := functionBlock.StartPosition()
+		endPos := functionBlock.EndPosition()
+
+		for _, parameter := range functionType.Parameters {
+			checker.Ranges.Put(
+				startPos,
+				endPos,
+				Range{
+					Identifier:      parameter.Identifier,
+					Type:            parameter.TypeAnnotation.Type,
+					DeclarationKind: common.DeclarationKindParameter,
+				},
+			)
+		}
+	}
 }
 
 // checkFunctionExits checks that the given function block exits
@@ -280,7 +308,9 @@ func (checker *Checker) declareParameters(
 			Pos:             &identifier.Pos,
 		}
 		checker.valueActivations.Set(identifier.Identifier, variable)
-		checker.recordVariableDeclarationOccurrence(identifier.Identifier, variable)
+		if checker.positionInfoEnabled {
+			checker.recordVariableDeclarationOccurrence(identifier.Identifier, variable)
+		}
 	}
 }
 
@@ -318,10 +348,20 @@ func (checker *Checker) visitWithPostConditions(postConditions *ast.Conditions, 
 		checker.declareBefore()
 	}
 
-	// If there is a return type, declare the constant `result` which has the return type
+	// If there is a return type, declare the constant `result`.
+	// If it is a resource type, the constant has the same type as a referecne to the return type.
+	// If it is not a resource type, the constant has the same type as the return type.
 
 	if returnType != VoidType {
-		checker.declareResult(returnType)
+		var resultType Type
+		if returnType.IsResourceType() {
+			resultType = &ReferenceType{
+				Type: returnType,
+			}
+		} else {
+			resultType = returnType
+		}
+		checker.declareResult(resultType)
 	}
 
 	if rewrittenPostConditions != nil {
@@ -335,7 +375,7 @@ func (checker *Checker) visitFunctionBlock(
 	checkResourceLoss bool,
 ) {
 	checker.enterValueScope()
-	defer checker.leaveValueScope(checkResourceLoss)
+	defer checker.leaveValueScope(functionBlock.EndPosition, checkResourceLoss)
 
 	if functionBlock.PreConditions != nil {
 		checker.visitConditions(*functionBlock.PreConditions)
@@ -357,7 +397,7 @@ func (checker *Checker) declareResult(ty Type) {
 	_, err := checker.valueActivations.DeclareImplicitConstant(
 		ResultIdentifier,
 		ty,
-		common.DeclarationKindResult,
+		common.DeclarationKindConstant,
 	)
 	checker.report(err)
 	// TODO: record occurrence - but what position?
@@ -407,7 +447,10 @@ func (checker *Checker) VisitFunctionExpression(expression *ast.FunctionExpressi
 // to be initialized (as stated in the initialization info) have been initialized.
 //
 func (checker *Checker) checkFieldMembersInitialized(info *InitializationInfo) {
-	for member, field := range info.FieldMembers {
+	for pair := info.FieldMembers.Oldest(); pair != nil; pair = pair.Next() {
+		member := pair.Key
+		field := pair.Value
+
 		isInitialized := info.InitializedFieldMembers.Contains(member)
 		if isInitialized {
 			continue

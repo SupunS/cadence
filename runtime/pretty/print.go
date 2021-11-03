@@ -52,6 +52,7 @@ func colorizeMeta(meta string) string {
 const errorPrefix = "error"
 const excerptArrow = "--> "
 const excerptDots = "... "
+const maxLineLength = 500
 
 func FormatErrorMessage(message string, useColor bool) string {
 	// prepare prefix
@@ -153,30 +154,33 @@ func (p ErrorPrettyPrinter) PrettyPrintError(err error, location common.Location
 	var printError func(err error, location common.Location) error
 	printError = func(err error, location common.Location) error {
 
+		if err, ok := err.(common.HasImportLocation); ok {
+			importLocation := err.ImportLocation()
+			if importLocation != nil {
+				location = importLocation
+			}
+		}
+
 		if err, ok := err.(errors.ParentError); ok {
+
 			for _, childErr := range err.ChildErrors() {
+
+				childLocation := location
 
 				if childErr, ok := childErr.(common.HasImportLocation); ok {
 					importLocation := childErr.ImportLocation()
 					if importLocation != nil {
-						location = importLocation
+						childLocation = importLocation
 					}
 				}
 
-				printErr := printError(childErr, location)
+				printErr := printError(childErr, childLocation)
 				if printErr != nil {
 					return printErr
 				}
 			}
 
 			return nil
-		}
-
-		if err, ok := err.(common.HasImportLocation); ok {
-			importLocation := err.ImportLocation()
-			if importLocation != nil {
-				location = importLocation
-			}
 		}
 
 		if i > 0 {
@@ -253,7 +257,10 @@ func (p ErrorPrettyPrinter) writeCodeExcerpts(
 		}
 
 		// code, if position
-		if excerpt.startPos != nil && len(code) > 0 {
+		if excerpt.startPos != nil &&
+			excerpt.startPos.Line > 0 &&
+			excerpt.startPos.Line <= len(lines) &&
+			len(code) > 0 {
 
 			if i > 0 && lastLineNumber != 0 && excerpt.startPos.Line-1 > lastLineNumber {
 				p.writeCodeExcerptContinuation(lineNumberLength)
@@ -275,7 +282,13 @@ func (p ErrorPrettyPrinter) writeCodeExcerpts(
 
 			// code line
 			line := lines[excerpt.startPos.Line-1]
-			p.writeString(line)
+			if len(line) > maxLineLength {
+				p.writeString(line[:maxLineLength])
+				p.writeString(excerptDots)
+			} else {
+				p.writeString(line)
+			}
+
 			p.writeString("\n")
 
 			// indicator line
@@ -287,7 +300,11 @@ func (p ErrorPrettyPrinter) writeCodeExcerpts(
 
 			columns := 1
 			if excerpt.endPos != nil && excerpt.endPos.Line == excerpt.startPos.Line {
-				columns = excerpt.endPos.Column - excerpt.startPos.Column + 1
+				endColumn := excerpt.endPos.Column
+				if endColumn >= maxLineLength {
+					endColumn = maxLineLength - 1
+				}
+				columns = endColumn - excerpt.startPos.Column + 1
 			}
 
 			indicator := "-"

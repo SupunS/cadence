@@ -26,4 +26,6 @@ type Declaration interface {
 	DeclarationIdentifier() *Identifier
 	DeclarationKind() common.DeclarationKind
 	DeclarationAccess() Access
+	DeclarationMembers() *Members
+	DeclarationDocString() string
 }

@@ -45,8 +45,8 @@ func (e *unsupportedOperation) Error() string {
 
 // Error is the containing type for all errors produced by the interpreter.
 type Error struct {
-	Err error
-	LocationRange
+	Err      error
+	Location common.Location
 }
 
 func (e Error) Unwrap() error {
@@ -54,6 +54,29 @@ func (e Error) Unwrap() error {
 }
 
 func (e Error) Error() string {
+	return e.Err.Error()
+}
+
+func (e Error) ChildErrors() []error {
+	return []error{e.Err}
+}
+
+func (e Error) ImportLocation() common.Location {
+	return e.Location
+}
+
+// PositionedError wraps an unpositioned error with position info
+//
+type PositionedError struct {
+	Err error
+	ast.Range
+}
+
+func (e PositionedError) Unwrap() error {
+	return e.Err
+}
+
+func (e PositionedError) Error() string {
 	return e.Err.Error()
 }
 
@@ -184,15 +207,14 @@ func (e DivisionByZeroError) Error() string {
 	return "division by zero"
 }
 
-// DestroyedCompositeError
+// InvalidatedResourceError
 
-type DestroyedCompositeError struct {
-	CompositeKind common.CompositeKind
+type InvalidatedResourceError struct {
 	LocationRange
 }
 
-func (e DestroyedCompositeError) Error() string {
-	return fmt.Sprintf("%s is destroyed and cannot be accessed anymore", e.CompositeKind.Name())
+func (e InvalidatedResourceError) Error() string {
+	return "resource is invalidated and cannot be used anymore"
 }
 
 // ForceAssignmentToNonNilResourceError
@@ -215,6 +237,20 @@ func (e ForceNilError) Error() string {
 	return "unexpectedly found nil while forcing an Optional value"
 }
 
+// ForceCastTypeMismatchError
+//
+type ForceCastTypeMismatchError struct {
+	ExpectedType sema.Type
+	LocationRange
+}
+
+func (e ForceCastTypeMismatchError) Error() string {
+	return fmt.Sprintf(
+		"unexpectedly found non-`%s` while force-casting value",
+		e.ExpectedType.QualifiedString(),
+	)
+}
+
 // TypeMismatchError
 //
 type TypeMismatchError struct {
@@ -224,7 +260,7 @@ type TypeMismatchError struct {
 
 func (e TypeMismatchError) Error() string {
 	return fmt.Sprintf(
-		"unexpectedly found non-`%s` while force-casting value",
+		"type mismatch: expected %s",
 		e.ExpectedType.QualifiedString(),
 	)
 }
@@ -275,7 +311,7 @@ func (e OverwriteError) Error() string {
 // CyclicLinkError
 //
 type CyclicLinkError struct {
-	Address AddressValue
+	Address common.Address
 	Paths   []PathValue
 	LocationRange
 }
@@ -292,7 +328,7 @@ func (e CyclicLinkError) Error() string {
 
 	return fmt.Sprintf(
 		"cyclic link in account %s: %s",
-		e.Address,
+		e.Address.ShortHexWithPrefix(),
 		paths,
 	)
 }
@@ -300,16 +336,32 @@ func (e CyclicLinkError) Error() string {
 // ArrayIndexOutOfBoundsError
 //
 type ArrayIndexOutOfBoundsError struct {
-	Index    int
-	MaxIndex int
+	Index int
+	Size  int
 	LocationRange
 }
 
 func (e ArrayIndexOutOfBoundsError) Error() string {
 	return fmt.Sprintf(
-		"array index out of bounds: got %d, expected max %d",
+		"array index out of bounds: %d, but size is %d",
 		e.Index,
-		e.MaxIndex,
+		e.Size,
+	)
+}
+
+// StringIndexOutOfBoundsError
+//
+type StringIndexOutOfBoundsError struct {
+	Index  int
+	Length int
+	LocationRange
+}
+
+func (e StringIndexOutOfBoundsError) Error() string {
+	return fmt.Sprintf(
+		"string index out of bounds: %d, but length is %d",
+		e.Index,
+		e.Length,
 	)
 }
 
@@ -331,4 +383,141 @@ type UUIDUnavailableError struct {
 
 func (e UUIDUnavailableError) Error() string {
 	return "cannot get UUID: unavailable"
+}
+
+// TypeLoadingError
+//
+type TypeLoadingError struct {
+	TypeID common.TypeID
+}
+
+func (e TypeLoadingError) Error() string {
+	return fmt.Sprintf("failed to load type: %s", e.TypeID)
+}
+
+// EncodingUnsupportedValueError
+//
+type EncodingUnsupportedValueError struct {
+	Value Value
+	Path  []string
+}
+
+func (e EncodingUnsupportedValueError) Error() string {
+	return fmt.Sprintf(
+		"encoding unsupported value to path [%s]: %[2]T, %[2]v",
+		strings.Join(e.Path, ","),
+		e.Value,
+	)
+}
+
+// MissingMemberValueError
+
+type MissingMemberValueError struct {
+	Name string
+	LocationRange
+}
+
+func (e MissingMemberValueError) Error() string {
+	return fmt.Sprintf("missing value for member `%s`", e.Name)
+}
+
+// InvocationArgumentTypeError
+//
+type InvocationArgumentTypeError struct {
+	Index         int
+	ParameterType sema.Type
+	LocationRange
+}
+
+func (e InvocationArgumentTypeError) Error() string {
+	return fmt.Sprintf(
+		"invalid invocation with argument at index %d: expected %s",
+		e.Index,
+		e.ParameterType.QualifiedString(),
+	)
+}
+
+// InvocationReceiverTypeError
+//
+type InvocationReceiverTypeError struct {
+	SelfType     sema.Type
+	ReceiverType sema.Type
+	LocationRange
+}
+
+func (e InvocationReceiverTypeError) Error() string {
+	return fmt.Sprintf(
+		"invalid invocation on %s: expected %s",
+		e.SelfType.QualifiedString(),
+		e.ReceiverType.QualifiedString(),
+	)
+}
+
+// ValueTransferTypeError
+//
+type ValueTransferTypeError struct {
+	TargetType sema.Type
+	LocationRange
+}
+
+func (e ValueTransferTypeError) Error() string {
+	return fmt.Sprintf(
+		"invalid transfer of value: expected %s",
+		e.TargetType.QualifiedString(),
+	)
+}
+
+// ResourceConstructionError
+//
+type ResourceConstructionError struct {
+	CompositeType *sema.CompositeType
+	LocationRange
+}
+
+func (e ResourceConstructionError) Error() string {
+	return fmt.Sprintf(
+		"cannot create resource %s: outside of declaring location %s",
+		e.CompositeType.QualifiedString(),
+		e.CompositeType.Location.String(),
+	)
+}
+
+// ContainerMutationError
+//
+type ContainerMutationError struct {
+	ExpectedType sema.Type
+	LocationRange
+}
+
+func (e ContainerMutationError) Error() string {
+	return fmt.Sprintf(
+		"invalid container update: expected a subtype of '%s'",
+		e.ExpectedType.QualifiedString(),
+	)
+}
+
+// NonStorableValueError
+//
+type NonStorableValueError struct {
+	Value Value
+}
+
+func (e NonStorableValueError) Error() string {
+	return fmt.Sprintf(
+		"cannot store non-storable value: %s",
+		e.Value,
+	)
+}
+
+// NonStorableStaticTypeError
+//
+type NonStorableStaticTypeError struct {
+	Type StaticType
+}
+
+func (e NonStorableStaticTypeError) Error() string {
+	return fmt.Sprintf(
+		"cannot store non-storable static type: %s",
+		e.Type,
+	)
 }

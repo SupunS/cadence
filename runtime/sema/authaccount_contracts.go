@@ -19,68 +19,69 @@
 package sema
 
 import (
-	"github.com/onflow/cadence/runtime/ast"
 	"github.com/onflow/cadence/runtime/common"
 )
 
+const AuthAccountContractsTypeName = "Contracts"
+const AuthAccountContractsTypeAddFunctionName = "add"
+const AuthAccountContractsTypeGetFunctionName = "get"
+const AuthAccountContractsTypeRemoveFunctionName = "remove"
+const AuthAccountContractsTypeUpdateExperimentalFunctionName = "update__experimental"
+const AuthAccountContractsTypeNamesField = "names"
+
 // AuthAccountContractsType represents the type `AuthAccount.Contracts`
+//
+var AuthAccountContractsType = func() *CompositeType {
 
-type AuthAccountContractsType struct{}
+	authAccountContractsType := &CompositeType{
+		Identifier: AuthAccountContractsTypeName,
+		Kind:       common.CompositeKindStructure,
+		importable: false,
+	}
 
-func (*AuthAccountContractsType) IsType() {}
+	var members = []*Member{
+		NewPublicFunctionMember(
+			authAccountContractsType,
+			AuthAccountContractsTypeAddFunctionName,
+			AuthAccountContractsTypeAddFunctionType,
+			authAccountContractsTypeAddFunctionDocString,
+		),
+		NewPublicFunctionMember(
+			authAccountContractsType,
+			AuthAccountContractsTypeUpdateExperimentalFunctionName,
+			AuthAccountContractsTypeUpdateExperimentalFunctionType,
+			authAccountContractsTypeUpdateExperimentalFunctionDocString,
+		),
+		NewPublicFunctionMember(
+			authAccountContractsType,
+			AuthAccountContractsTypeGetFunctionName,
+			AuthAccountContractsTypeGetFunctionType,
+			authAccountContractsTypeGetFunctionDocString,
+		),
+		NewPublicFunctionMember(
+			authAccountContractsType,
+			AuthAccountContractsTypeRemoveFunctionName,
+			AuthAccountContractsTypeRemoveFunctionType,
+			authAccountContractsTypeRemoveFunctionDocString,
+		),
+		NewPublicConstantFieldMember(
+			authAccountContractsType,
+			AuthAccountContractsTypeNamesField,
+			&VariableSizedType{
+				Type: StringType,
+			},
+			authAccountContractsTypeGetNamesDocString,
+		),
+	}
 
-func (*AuthAccountContractsType) String() string {
-	return "Contracts"
-}
+	authAccountContractsType.Members = GetMembersAsMap(members)
+	authAccountContractsType.Fields = getFieldNames(members)
+	return authAccountContractsType
+}()
 
-func (*AuthAccountContractsType) QualifiedString() string {
-	return "AuthAccount.Contracts"
-}
-
-func (*AuthAccountContractsType) ID() TypeID {
-	return "AuthAccount.Contracts"
-}
-
-func (*AuthAccountContractsType) Equal(other Type) bool {
-	_, ok := other.(*AuthAccountContractsType)
-	return ok
-}
-
-func (*AuthAccountContractsType) IsResourceType() bool {
-	return false
-}
-
-func (*AuthAccountContractsType) IsInvalidType() bool {
-	return false
-}
-
-func (*AuthAccountContractsType) IsStorable(_ map[*Member]bool) bool {
-	return false
-}
-
-func (*AuthAccountContractsType) IsExternallyReturnable(_ map[*Member]bool) bool {
-	return false
-}
-
-func (*AuthAccountContractsType) IsEquatable() bool {
-	// TODO: maybe implement equality
-	return false
-}
-
-func (*AuthAccountContractsType) TypeAnnotationState() TypeAnnotationState {
-	return TypeAnnotationStateValid
-}
-
-func (t *AuthAccountContractsType) RewriteWithRestrictedTypes() (Type, bool) {
-	return t, false
-}
-
-func (*AuthAccountContractsType) Unify(_ Type, _ map[*TypeParameter]Type, _ func(err error), _ ast.Range) bool {
-	return false
-}
-
-func (t *AuthAccountContractsType) Resolve(_ map[*TypeParameter]Type) Type {
-	return t
+func init() {
+	// Set the container type after initializing the `AuthAccountContractsType`, to avoid initializing loop.
+	AuthAccountContractsType.SetContainerType(AuthAccountType)
 }
 
 const authAccountContractsTypeAddFunctionDocString = `
@@ -100,24 +101,24 @@ or if the given name does not match the name of the contract/contract interface 
 Returns the deployed contract.
 `
 
-const AuthAccountContractsTypeAddFunctionName = "add"
-
-var authAccountContractsTypeAddFunctionType = &FunctionType{
+var AuthAccountContractsTypeAddFunctionType = &FunctionType{
 	Parameters: []*Parameter{
 		{
-			Identifier:     "name",
-			TypeAnnotation: NewTypeAnnotation(&StringType{}),
+			Identifier: "name",
+			TypeAnnotation: NewTypeAnnotation(
+				StringType,
+			),
 		},
 		{
 			Identifier: "code",
 			TypeAnnotation: NewTypeAnnotation(
-				&VariableSizedType{
-					Type: &UInt8Type{},
-				},
+				ByteArrayType,
 			),
 		},
 	},
-	ReturnTypeAnnotation: NewTypeAnnotation(&DeployedContractType{}),
+	ReturnTypeAnnotation: NewTypeAnnotation(
+		DeployedContractType,
+	),
 	// additional arguments are passed to the contract initializer
 	RequiredArgumentCount: RequiredArgumentCount(2),
 }
@@ -141,24 +142,24 @@ or if the given name does not match the name of the contract/contract interface 
 Returns the deployed contract for the updated contract.
 `
 
-const AuthAccountContractsTypeUpdateExperimentalFunctionName = "update__experimental"
-
-var authAccountContractsTypeUpdateExperimentalFunctionType = &FunctionType{
+var AuthAccountContractsTypeUpdateExperimentalFunctionType = &FunctionType{
 	Parameters: []*Parameter{
 		{
-			Identifier:     "name",
-			TypeAnnotation: NewTypeAnnotation(&StringType{}),
+			Identifier: "name",
+			TypeAnnotation: NewTypeAnnotation(
+				StringType,
+			),
 		},
 		{
 			Identifier: "code",
 			TypeAnnotation: NewTypeAnnotation(
-				&VariableSizedType{
-					Type: &UInt8Type{},
-				},
+				ByteArrayType,
 			),
 		},
 	},
-	ReturnTypeAnnotation: NewTypeAnnotation(&DeployedContractType{}),
+	ReturnTypeAnnotation: NewTypeAnnotation(
+		DeployedContractType,
+	),
 }
 
 const authAccountContractsTypeGetFunctionDocString = `
@@ -167,18 +168,18 @@ Returns the deployed contract for the contract/contract interface with the given
 Returns nil if no contract/contract interface with the given name exists in the account.
 `
 
-const AuthAccountContractsTypeGetFunctionName = "get"
-
-var authAccountContractsTypeGetFunctionType = &FunctionType{
+var AuthAccountContractsTypeGetFunctionType = &FunctionType{
 	Parameters: []*Parameter{
 		{
-			Identifier:     "name",
-			TypeAnnotation: NewTypeAnnotation(&StringType{}),
+			Identifier: "name",
+			TypeAnnotation: NewTypeAnnotation(
+				StringType,
+			),
 		},
 	},
 	ReturnTypeAnnotation: NewTypeAnnotation(
 		&OptionalType{
-			Type: &DeployedContractType{},
+			Type: DeployedContractType,
 		},
 	),
 }
@@ -191,67 +192,20 @@ Returns the removed deployed contract, if any.
 Returns nil if no contract/contract interface with the given name exists in the account.
 `
 
-const AuthAccountContractsTypeRemoveFunctionName = "remove"
-
-var authAccountContractsTypeRemoveFunctionType = &FunctionType{
+var AuthAccountContractsTypeRemoveFunctionType = &FunctionType{
 	Parameters: []*Parameter{
 		{
 			Identifier:     "name",
-			TypeAnnotation: NewTypeAnnotation(&StringType{}),
+			TypeAnnotation: NewTypeAnnotation(StringType),
 		},
 	},
 	ReturnTypeAnnotation: NewTypeAnnotation(
 		&OptionalType{
-			Type: &DeployedContractType{},
+			Type: DeployedContractType,
 		},
 	),
 }
 
-func (t *AuthAccountContractsType) GetMembers() map[string]MemberResolver {
-	return withBuiltinMembers(t, map[string]MemberResolver{
-		AuthAccountContractsTypeAddFunctionName: {
-			Kind: common.DeclarationKindField,
-			Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-				return NewPublicFunctionMember(
-					t,
-					identifier,
-					authAccountContractsTypeAddFunctionType,
-					authAccountContractsTypeAddFunctionDocString,
-				)
-			},
-		},
-		AuthAccountContractsTypeUpdateExperimentalFunctionName: {
-			Kind: common.DeclarationKindField,
-			Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-				return NewPublicFunctionMember(
-					t,
-					identifier,
-					authAccountContractsTypeUpdateExperimentalFunctionType,
-					authAccountContractsTypeUpdateExperimentalFunctionDocString,
-				)
-			},
-		},
-		AuthAccountContractsTypeGetFunctionName: {
-			Kind: common.DeclarationKindField,
-			Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-				return NewPublicFunctionMember(
-					t,
-					identifier,
-					authAccountContractsTypeGetFunctionType,
-					authAccountContractsTypeGetFunctionDocString,
-				)
-			},
-		},
-		AuthAccountContractsTypeRemoveFunctionName: {
-			Kind: common.DeclarationKindField,
-			Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-				return NewPublicFunctionMember(
-					t,
-					identifier,
-					authAccountContractsTypeRemoveFunctionType,
-					authAccountContractsTypeRemoveFunctionDocString,
-				)
-			},
-		},
-	})
-}
+const authAccountContractsTypeGetNamesDocString = `
+Names of all contracts deployed in the account.
+`

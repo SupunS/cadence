@@ -51,9 +51,11 @@ func TestCheckToString(t *testing.T) {
 
 			require.NoError(t, err)
 
+			resType := RequireGlobalValue(t, checker.Elaboration, "res")
+
 			assert.Equal(t,
-				&sema.StringType{},
-				checker.GlobalValues["res"].Type,
+				sema.StringType,
+				resType,
 			)
 		})
 	}
@@ -74,11 +76,11 @@ func TestCheckToBytes(t *testing.T) {
 
 		require.NoError(t, err)
 
+		resType := RequireGlobalValue(t, checker.Elaboration, "res")
+
 		assert.Equal(t,
-			&sema.VariableSizedType{
-				Type: &sema.UInt8Type{},
-			},
-			checker.GlobalValues["res"].Type,
+			sema.ByteArrayType,
+			resType,
 		)
 	})
 }
@@ -98,11 +100,11 @@ func TestCheckToBigEndianBytes(t *testing.T) {
 
 			require.NoError(t, err)
 
+			resType := RequireGlobalValue(t, checker.Elaboration, "res")
+
 			assert.Equal(t,
-				&sema.VariableSizedType{
-					Type: &sema.UInt8Type{},
-				},
-				checker.GlobalValues["res"].Type,
+				sema.ByteArrayType,
+				resType,
 			)
 		})
 	}

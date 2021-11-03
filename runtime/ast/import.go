@@ -41,6 +41,10 @@ func (d *ImportDeclaration) Accept(visitor Visitor) Repr {
 	return visitor.VisitImportDeclaration(d)
 }
 
+func (*ImportDeclaration) Walk(_ func(Element)) {
+	// NO-OP
+}
+
 func (d *ImportDeclaration) DeclarationIdentifier() *Identifier {
 	return nil
 }
@@ -51,6 +55,14 @@ func (d *ImportDeclaration) DeclarationKind() common.DeclarationKind {
 
 func (d *ImportDeclaration) DeclarationAccess() Access {
 	return AccessNotSpecified
+}
+
+func (d *ImportDeclaration) DeclarationMembers() *Members {
+	return nil
+}
+
+func (d *ImportDeclaration) DeclarationDocString() string {
+	return ""
 }
 
 func (d *ImportDeclaration) MarshalJSON() ([]byte, error) {

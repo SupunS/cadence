@@ -1,7 +1,7 @@
 /*
  * Cadence - The resource-oriented smart contract programming language
  *
- * Copyright 2019-2020 Dapper Labs, Inc.
+ * Copyright 2019-2021 Dapper Labs, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,63 +24,75 @@ import (
 )
 
 // BlockType
-
-type BlockType struct{}
-
-func (*BlockType) IsType() {}
-
-func (*BlockType) String() string {
-	return "Block"
-}
-
-func (*BlockType) QualifiedString() string {
-	return "Block"
-}
-
-func (*BlockType) ID() TypeID {
-	return "Block"
-}
-
-func (*BlockType) Equal(other Type) bool {
-	_, ok := other.(*BlockType)
-	return ok
-}
-
-func (*BlockType) IsResourceType() bool {
-	return false
-}
-
-func (*BlockType) TypeAnnotationState() TypeAnnotationState {
-	return TypeAnnotationStateValid
-}
-
-func (*BlockType) IsInvalidType() bool {
-	return false
-}
-
-func (*BlockType) IsStorable(_ map[*Member]bool) bool {
-	return false
-}
-
-func (*BlockType) IsExternallyReturnable(_ map[*Member]bool) bool {
-	return false
-}
-
-func (*BlockType) IsEquatable() bool {
-	// TODO:
-	return false
-}
-
-func (t *BlockType) RewriteWithRestrictedTypes() (Type, bool) {
-	return t, false
+//
+var BlockType = &SimpleType{
+	Name:                 "Block",
+	QualifiedName:        "Block",
+	TypeID:               "Block",
+	IsInvalid:            false,
+	IsResource:           false,
+	Storable:             false,
+	Equatable:            false,
+	ExternallyReturnable: false,
+	Importable:           false,
+	Members: func(t *SimpleType) map[string]MemberResolver {
+		return map[string]MemberResolver{
+			BlockTypeHeightFieldName: {
+				Kind: common.DeclarationKindField,
+				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
+					return NewPublicConstantFieldMember(
+						t,
+						identifier,
+						UInt64Type,
+						blockTypeHeightFieldDocString,
+					)
+				},
+			},
+			BlockTypeViewFieldName: {
+				Kind: common.DeclarationKindField,
+				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
+					return NewPublicConstantFieldMember(
+						t,
+						identifier,
+						UInt64Type,
+						blockTypeViewFieldDocString,
+					)
+				},
+			},
+			BlockTypeTimestampFieldName: {
+				Kind: common.DeclarationKindField,
+				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
+					return NewPublicConstantFieldMember(
+						t,
+						identifier,
+						UFix64Type,
+						blockTypeTimestampFieldDocString,
+					)
+				},
+			},
+			BlockTypeIDFieldName: {
+				Kind: common.DeclarationKindField,
+				Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
+					return NewPublicConstantFieldMember(
+						t,
+						identifier,
+						blockIDFieldType,
+						blockTypeIDFieldDocString,
+					)
+				},
+			},
+		}
+	},
 }
 
 const BlockIDSize = 32
 
 var blockIDFieldType = &ConstantSizedType{
-	Type: &UInt8Type{},
+	Type: UInt8Type,
 	Size: BlockIDSize,
 }
+
+const BlockTypeHeightFieldName = "height"
 
 const blockTypeHeightFieldDocString = `
 The height of the block.
@@ -88,11 +100,15 @@ The height of the block.
 If the blockchain is viewed as a tree with the genesis block at the root, the height of a node is the number of edges between the node and the genesis block
 `
 
+const BlockTypeViewFieldName = "view"
+
 const blockTypeViewFieldDocString = `
 The view of the block.
 
 It is a detail of the consensus algorithm. It is a monotonically increasing integer and counts rounds in the consensus algorithm. Since not all rounds result in a finalized block, the view number is strictly greater than or equal to the block height
 `
+
+const BlockTypeTimestampFieldName = "timestamp"
 
 const blockTypeTimestampFieldDocString = `
 The ID of the block.
@@ -100,65 +116,13 @@ The ID of the block.
 It is essentially the hash of the block
 `
 
-const blockTypeIdFieldDocString = `
+const BlockTypeIDFieldName = "id"
+
+const blockTypeIDFieldDocString = `
 The timestamp of the block.
 
-It is the local clock time of the block proposer when it generates the block
+Unix timestamp of when the proposer claims it constructed the block.
+
+NOTE: It is included by the proposer, there are no guarantees on how much the time stamp can deviate from the true time the block was published.
+Consider observing blocks’ status changes off-chain yourself to get a more reliable value
 `
-
-func (t *BlockType) GetMembers() map[string]MemberResolver {
-	return map[string]MemberResolver{
-		"height": {
-			Kind: common.DeclarationKindField,
-			Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-				return NewPublicConstantFieldMember(
-					t,
-					identifier,
-					&UInt64Type{},
-					blockTypeHeightFieldDocString,
-				)
-			},
-		},
-		"view": {
-			Kind: common.DeclarationKindField,
-			Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-				return NewPublicConstantFieldMember(
-					t,
-					identifier,
-					&UInt64Type{},
-					blockTypeViewFieldDocString,
-				)
-			},
-		},
-		"timestamp": {
-			Kind: common.DeclarationKindField,
-			Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-				return NewPublicConstantFieldMember(
-					t,
-					identifier,
-					&UFix64Type{},
-					blockTypeTimestampFieldDocString,
-				)
-			},
-		},
-		"id": {
-			Kind: common.DeclarationKindField,
-			Resolve: func(identifier string, _ ast.Range, _ func(error)) *Member {
-				return NewPublicConstantFieldMember(
-					t,
-					identifier,
-					blockIDFieldType,
-					blockTypeIdFieldDocString,
-				)
-			},
-		},
-	}
-}
-
-func (t *BlockType) Unify(_ Type, _ map[*TypeParameter]Type, _ func(err error), _ ast.Range) bool {
-	return false
-}
-
-func (t *BlockType) Resolve(_ map[*TypeParameter]Type) Type {
-	return t
-}
