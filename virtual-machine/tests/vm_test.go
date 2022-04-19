@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package virtual_machine
+package tests
 
 import (
 	"testing"
@@ -26,14 +26,14 @@ import (
 	"github.com/onflow/cadence/runtime/ast"
 	"github.com/onflow/cadence/runtime/parser2"
 
-	vm "github.com/onflow/cadence/virtual-machine/stack-vm"
-	"github.com/onflow/cadence/virtual-machine/stack-vm/instructions"
+	"github.com/onflow/cadence/virtual-machine"
+	"github.com/onflow/cadence/virtual-machine/instructions"
 )
 
 const LOOP_COUNT = 1000
 
 func TestVM(t *testing.T) {
-	ins := []vm.Instruction{
+	ins := []virtual_machine.Instruction{
 		instructions.ICONST{0},
 		instructions.ISTORE{0}, // result-var index
 
@@ -71,12 +71,12 @@ func TestVM(t *testing.T) {
 		instructions.STOP{},
 	}
 
-	vm := vm.NewVirtualMachine()
+	vm := virtual_machine.NewVirtualMachine()
 	vm.Execute(ins)
 }
 
 func BenchmarkVM(b *testing.B) {
-	instructions := []vm.Instruction{
+	instructions := []virtual_machine.Instruction{
 		instructions.ICONST{0},
 		instructions.ISTORE{0}, // result-var index
 
@@ -110,7 +110,7 @@ func BenchmarkVM(b *testing.B) {
 		instructions.STOP{},
 	}
 
-	vm := vm.NewVirtualMachine()
+	vm := virtual_machine.NewVirtualMachine()
 
 	b.ResetTimer()
 

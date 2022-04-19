@@ -18,15 +18,17 @@
 
 package instructions
 
-import vm "github.com/onflow/cadence/virtual-machine/stack-vm"
+import (
+	vm "github.com/onflow/cadence/virtual-machine"
+)
 
-// ICONST instruction
-type ICONST struct {
-	Value int
+// ILOAD instruction
+type ILOAD struct {
+	Index int
 }
 
-var _ vm.Instruction = ICONST{}
+var _ vm.Instruction = ILOAD{}
 
-func (i ICONST) Execute(vm *vm.VirtualMachine) {
-	vm.Stack.Push(i.Value)
+func (i ILOAD) Execute(vm *vm.VirtualMachine) {
+	vm.Stack.Push(vm.Stack.Get(i.Index))
 }

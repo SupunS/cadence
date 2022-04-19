@@ -16,17 +16,10 @@
  * limitations under the License.
  */
 
-package instructions
+package virtual_machine
 
-import vm "github.com/onflow/cadence/virtual-machine/stack-vm"
-
-// ILOAD instruction
-type ILOAD struct {
-	Index int
+type Instruction interface {
+	Execute(vm *VirtualMachine)
 }
 
-var _ vm.Instruction = ILOAD{}
-
-func (i ILOAD) Execute(vm *vm.VirtualMachine) {
-	vm.Stack.Push(vm.Stack.Get(i.Index))
-}
+const NO_OP = -1

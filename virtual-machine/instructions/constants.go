@@ -18,15 +18,17 @@
 
 package instructions
 
-import vm "github.com/onflow/cadence/virtual-machine/stack-vm"
+import (
+	vm "github.com/onflow/cadence/virtual-machine"
+)
 
-// ISTORE instruction
-type ISTORE struct {
-	Index int
+// ICONST instruction
+type ICONST struct {
+	Value int
 }
 
-var _ vm.Instruction = ISTORE{}
+var _ vm.Instruction = ICONST{}
 
-func (i ISTORE) Execute(vm *vm.VirtualMachine) {
-	vm.Stack.Set(i.Index, vm.Stack.Pop())
+func (i ICONST) Execute(vm *vm.VirtualMachine) {
+	vm.Stack.Push(i.Value)
 }

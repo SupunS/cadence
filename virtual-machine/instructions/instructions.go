@@ -18,13 +18,26 @@
 
 package instructions
 
-import vm "github.com/onflow/cadence/virtual-machine/stack-vm"
+import (
+	"fmt"
 
-// IADD instruction
-type IADD struct{}
+	vm "github.com/onflow/cadence/virtual-machine"
+)
 
-var _ vm.Instruction = IADD{}
+// PRINT instruction
+type PRINT struct{}
 
-func (i IADD) Execute(vm *vm.VirtualMachine) {
-	vm.Stack.Push(vm.Stack.Pop().(int) + vm.Stack.Pop().(int))
+var _ vm.Instruction = PRINT{}
+
+func (i PRINT) Execute(m *vm.VirtualMachine) {
+	fmt.Println(m.Stack.Pop())
+}
+
+// STOP instruction
+type STOP struct{}
+
+var _ vm.Instruction = STOP{}
+
+func (i STOP) Execute(m *vm.VirtualMachine) {
+	m.NextIndex = vm.NO_OP
 }

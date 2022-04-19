@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package stack_vm
+package virtual_machine
 
 type Value interface{}
 
@@ -37,8 +37,12 @@ func (s *Stack) Pop() Value {
 }
 
 func (s *Stack) Set(index int, v Value) {
+	if index > len(s.values) {
+		panic("invalid index")
+	}
+
 	// If it's the first time var is stored, allocate a new memory location
-	if index >= len(s.values) {
+	if index == len(s.values) {
 		s.values = append(s.values, v)
 		return
 	}
@@ -64,7 +68,7 @@ func NewVirtualMachine() *VirtualMachine {
 }
 
 func (vm *VirtualMachine) Execute(instructions []Instruction) {
-	for vm.NextIndex != -1 {
+	for vm.NextIndex != NO_OP {
 		instruction := instructions[vm.NextIndex]
 		vm.NextIndex++
 

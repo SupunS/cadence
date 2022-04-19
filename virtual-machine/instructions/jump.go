@@ -19,25 +19,34 @@
 package instructions
 
 import (
-	"fmt"
-
-	vm "github.com/onflow/cadence/virtual-machine/stack-vm"
+	vm "github.com/onflow/cadence/virtual-machine"
 )
 
-// PRINT instruction
-type PRINT struct{}
+// Contains all jump instructions.
 
-var _ vm.Instruction = PRINT{}
-
-func (i PRINT) Execute(vm *vm.VirtualMachine) {
-	fmt.Println(vm.Stack.Pop())
+// GOTO instruction
+type GOTO struct {
+	Instruction int
 }
 
-// STOP instruction
-type STOP struct{}
+var _ vm.Instruction = GOTO{}
 
-var _ vm.Instruction = STOP{}
+func (i GOTO) Execute(vm *vm.VirtualMachine) {
+	vm.NextIndex = i.Instruction
+}
 
-func (i STOP) Execute(vm *vm.VirtualMachine) {
-	vm.NextIndex = -1
+// ICOMP instruction
+type ICOMP struct {
+	Instruction int // instruction to jump to, if false
+}
+
+var _ vm.Instruction = ICOMP{}
+
+func (i ICOMP) Execute(vm *vm.VirtualMachine) {
+	rhsOp := vm.Stack.Pop().(int)
+	lhsOp := vm.Stack.Pop().(int)
+
+	if lhsOp != rhsOp {
+		vm.NextIndex = i.Instruction
+	}
 }

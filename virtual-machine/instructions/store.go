@@ -16,10 +16,19 @@
  * limitations under the License.
  */
 
-package stack_vm
+package instructions
 
-type Instruction interface {
-	Execute(vm *VirtualMachine)
+import (
+	vm "github.com/onflow/cadence/virtual-machine"
+)
+
+// ISTORE instruction
+type ISTORE struct {
+	Index int
 }
 
+var _ vm.Instruction = ISTORE{}
 
+func (i ISTORE) Execute(vm *vm.VirtualMachine) {
+	vm.Stack.Set(i.Index, vm.Stack.Pop())
+}

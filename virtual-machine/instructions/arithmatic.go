@@ -18,30 +18,17 @@
 
 package instructions
 
-import vm "github.com/onflow/cadence/virtual-machine/stack-vm"
+import (
+	vm "github.com/onflow/cadence/virtual-machine"
+)
 
-// Contains all jump instructions.
+// IADD instruction
+type IADD struct{}
 
-// GOTO instruction
-type GOTO struct {
-	Instruction int
-}
+var _ vm.Instruction = IADD{}
 
-var _ vm.Instruction = GOTO{}
-
-func (i GOTO) Execute(vm *vm.VirtualMachine) {
-	vm.NextIndex = i.Instruction
-}
-
-// ICOMP instruction
-type ICOMP struct {
-	Instruction int // instruction to jump to, if false
-}
-
-var _ vm.Instruction = ICOMP{}
-
-func (i ICOMP) Execute(vm *vm.VirtualMachine) {
-	if vm.Stack.Pop().(int) != vm.Stack.Pop().(int) {
-		vm.NextIndex = i.Instruction
-	}
+func (i IADD) Execute(vm *vm.VirtualMachine) {
+	rhsOp := vm.Stack.Pop().(int)
+	lhsOp := vm.Stack.Pop().(int)
+	vm.Stack.Push(lhsOp + rhsOp)
 }
