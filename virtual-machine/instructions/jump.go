@@ -43,8 +43,8 @@ type ICOMP struct {
 var _ vm.Instruction = ICOMP{}
 
 func (i ICOMP) Execute(vm *vm.VirtualMachine) {
-	rhsOp := vm.Stack.Pop().(int)
-	lhsOp := vm.Stack.Pop().(int)
+	rhsOp := vm.CurrentStackFrame().Pop().(int)
+	lhsOp := vm.CurrentStackFrame().Pop().(int)
 
 	if lhsOp != rhsOp {
 		vm.NextIndex = i.Instruction

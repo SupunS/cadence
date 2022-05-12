@@ -30,5 +30,5 @@ type ILOAD struct {
 var _ vm.Instruction = ILOAD{}
 
 func (i ILOAD) Execute(vm *vm.VirtualMachine) {
-	vm.Stack.Push(vm.Stack.Get(i.Index))
+	vm.CurrentStackFrame().Push(vm.CurrentStackFrame().Get(i.Index))
 }

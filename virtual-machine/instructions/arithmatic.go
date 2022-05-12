@@ -28,7 +28,7 @@ type IADD struct{}
 var _ vm.Instruction = IADD{}
 
 func (i IADD) Execute(vm *vm.VirtualMachine) {
-	rhsOp := vm.Stack.Pop().(int)
-	lhsOp := vm.Stack.Pop().(int)
-	vm.Stack.Push(lhsOp + rhsOp)
+	rhsOp := vm.CurrentStackFrame().Pop().(int)
+	lhsOp := vm.CurrentStackFrame().Pop().(int)
+	vm.CurrentStackFrame().Push(lhsOp + rhsOp)
 }

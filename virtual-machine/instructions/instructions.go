@@ -30,7 +30,7 @@ type PRINT struct{}
 var _ vm.Instruction = PRINT{}
 
 func (i PRINT) Execute(m *vm.VirtualMachine) {
-	fmt.Println(m.Stack.Pop())
+	fmt.Println(m.CurrentStackFrame().Pop())
 }
 
 // STOP instruction

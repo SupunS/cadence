@@ -18,28 +18,42 @@
 
 package virtual_machine
 
-type Value interface{}
-
-type VirtualMachine struct {
-	CallStack *CallStack
-	NextIndex int
+type StackFrame struct {
+	values []Value
 }
 
-func NewVirtualMachine() *VirtualMachine {
-	return &VirtualMachine{
-		CallStack: NewCallStack(),
+func NewStackFrame() *StackFrame {
+	return &StackFrame{
+		values: make([]Value, 0, 10),
 	}
 }
 
-func (vm *VirtualMachine) Execute(instructions []Instruction) {
-	for vm.NextIndex != NO_OP {
-		instruction := instructions[vm.NextIndex]
-		vm.NextIndex++
-
-		instruction.Execute(vm)
-	}
+func (s *StackFrame) Push(v Value) {
+	s.values = append(s.values, v)
 }
 
-func (vm *VirtualMachine) CurrentStackFrame() *StackFrame {
-	return vm.CallStack.Top()
+func (s *StackFrame) Pop() Value {
+	// FIXME: handle empty Stack
+	l := len(s.values)
+	top := s.values[l-1]
+	s.values = s.values[:l-1]
+	return top
+}
+
+func (s *StackFrame) Set(index int, v Value) {
+	if index > len(s.values) {
+		panic("invalid index")
+	}
+
+	// If it's the first time var is stored, allocate a new memory location
+	if index == len(s.values) {
+		s.values = append(s.values, v)
+		return
+	}
+
+	s.values[index] = v
+}
+
+func (s *StackFrame) Get(index int) Value {
+	return s.values[index]
 }

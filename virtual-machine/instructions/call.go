@@ -22,13 +22,12 @@ import (
 	vm "github.com/onflow/cadence/virtual-machine"
 )
 
-// ISTORE instruction
-type ISTORE struct {
+// FCALL instruction
+type FCALL struct {
 	Index int
 }
 
-var _ vm.Instruction = ISTORE{}
+var _ vm.Instruction = FCALL{}
 
-func (i ISTORE) Execute(vm *vm.VirtualMachine) {
-	vm.CurrentStackFrame().Set(i.Index, vm.CurrentStackFrame().Pop())
+func (i FCALL) Execute(vm *vm.VirtualMachine) {
 }

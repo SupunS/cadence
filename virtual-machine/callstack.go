@@ -16,19 +16,43 @@
  * limitations under the License.
  */
 
-package instructions
+package virtual_machine
 
-import (
-	vm "github.com/onflow/cadence/virtual-machine"
-)
+type CallStack struct {
+	stackFrames []*StackFrame
 
-// ISTORE instruction
-type ISTORE struct {
-	Index int
+	// cache for fast access
+	top *StackFrame
 }
 
-var _ vm.Instruction = ISTORE{}
+func NewCallStack() *CallStack {
+	callstack := &CallStack{}
+	callstack.PushNew()
 
-func (i ISTORE) Execute(vm *vm.VirtualMachine) {
-	vm.CurrentStackFrame().Set(i.Index, vm.CurrentStackFrame().Pop())
+	return callstack
+}
+
+func (s *CallStack) PushNew() {
+	s.Push(NewStackFrame())
+}
+
+func (s *CallStack) Push(frame *StackFrame) {
+	s.top = frame
+	s.stackFrames = append(s.stackFrames, frame)
+}
+
+func (s *CallStack) Pop() *StackFrame {
+	// FIXME: handle empty Stack
+	l := len(s.stackFrames)
+	top := s.stackFrames[l-1]
+	s.stackFrames = s.stackFrames[:l-1]
+
+	// update the new top of stack
+	s.top = s.stackFrames[l-2]
+
+	return top
+}
+
+func (s *CallStack) Top() *StackFrame {
+	return s.top
 }

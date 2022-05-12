@@ -30,5 +30,5 @@ type ICONST struct {
 var _ vm.Instruction = ICONST{}
 
 func (i ICONST) Execute(vm *vm.VirtualMachine) {
-	vm.Stack.Push(i.Value)
+	vm.CurrentStackFrame().Push(i.Value)
 }
