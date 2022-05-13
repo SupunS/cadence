@@ -26,12 +26,12 @@ type VirtualMachine struct {
 }
 
 func NewVirtualMachine() *VirtualMachine {
-	return &VirtualMachine{
-		CallStack: NewCallStack(),
-	}
+	return &VirtualMachine{}
 }
 
 func (vm *VirtualMachine) Execute(instructions []Instruction) {
+	vm.CallStack = NewCallStack()
+
 	for vm.NextIndex != NO_OP {
 		instruction := instructions[vm.NextIndex]
 		vm.NextIndex++

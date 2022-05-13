@@ -47,8 +47,8 @@ func TestVM(t *testing.T) {
 		instructions.ILOAD{1},
 		instructions.ICONST{big.NewInt(LOOP_COUNT)},
 		instructions.INEQ{},
-		instructions.JUMPIF{9},  // if true, jump to loop body
-		instructions.GOTO{18}, // jump to end-of-loop
+		instructions.JUMPIF{9}, // if true, jump to loop body
+		instructions.GOTO{18},  // jump to end-of-loop
 
 		// loop body
 
@@ -96,8 +96,6 @@ func TestCodeGen(t *testing.T) {
 	`)
 	assert.NoError(t, err)
 
-	//block := program.FunctionDeclarations()[0].FunctionBlock.Block
-
 	codeGen := codegen.NewCodeGenerator()
 	instructions := codeGen.Generate(program)
 
@@ -109,7 +107,7 @@ func TestCodeGen(t *testing.T) {
 	vm.Execute(instructions)
 }
 
-func BenchmarkVM(b *testing.B) {
+func BenchmarkInstructions(b *testing.B) {
 	instructions := []virtual_machine.Instruction{
 		instructions.ICONST{big.NewInt(0)},
 		instructions.ISTORE{0}, // result-var index
@@ -121,8 +119,8 @@ func BenchmarkVM(b *testing.B) {
 		instructions.ILOAD{0},
 		instructions.ICONST{big.NewInt(LOOP_COUNT)},
 		instructions.INEQ{},
-		instructions.JUMPIF{9},  // if true, jump to loop body
-		instructions.GOTO{18}, // jump to end-of-loop
+		instructions.JUMPIF{9}, // if true, jump to loop body
+		instructions.GOTO{18},  // jump to end-of-loop
 
 		// loop body
 
@@ -145,6 +143,55 @@ func BenchmarkVM(b *testing.B) {
 		instructions.STOP{},
 	}
 
+	vm := virtual_machine.NewVirtualMachine()
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		vm.Execute(instructions)
+	}
+}
+
+func BenchmarkCodeGen(b *testing.B) {
+	program, err := parser2.ParseProgram(`
+        fun test() {
+			var i = 0
+			var result = 0
+			while i != 1000 {
+				i = i + 1
+				result = result + 5
+			}
+	    }
+	`)
+	assert.NoError(b, err)
+
+	b.ResetTimer()
+
+	vm := virtual_machine.NewVirtualMachine()
+
+	for i := 0; i < b.N; i++ {
+		codeGen := codegen.NewCodeGenerator()
+		instructions := codeGen.Generate(program)
+
+		vm.Execute(instructions)
+	}
+}
+
+func BenchmarkVM(b *testing.B) {
+	program, err := parser2.ParseProgram(`
+        fun test() {
+			var i = 0
+			var result = 0
+			while i != 1000 {
+				i = i + 1
+				result = result + 5
+			}
+	    }
+	`)
+	assert.NoError(b, err)
+
+	codeGen := codegen.NewCodeGenerator()
+	instructions := codeGen.Generate(program)
 	vm := virtual_machine.NewVirtualMachine()
 
 	b.ResetTimer()

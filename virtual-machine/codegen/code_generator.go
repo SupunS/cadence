@@ -53,8 +53,9 @@ func (c *Scope) GetVarIndex(name string) int {
 }
 
 type CodeGenerator struct {
-	Instructions []vm.Instruction
-	scope        Scope
+	Instructions      []vm.Instruction
+	instructionOffset int
+	scope             Scope
 }
 
 var _ ast.Visitor = &CodeGenerator{}
@@ -65,17 +66,18 @@ func NewCodeGenerator() *CodeGenerator {
 
 func (c *CodeGenerator) Generate(program *ast.Program) []vm.Instruction {
 	program.Accept(c)
-	c.emit(instructions.PRINT{})
+	//c.emit(instructions.PRINT{})
 	c.emit(instructions.STOP{})
 	return c.Instructions
 }
 
 func (c *CodeGenerator) emit(ins vm.Instruction) {
 	c.Instructions = append(c.Instructions, ins)
+	c.instructionOffset++
 }
 
 func (c *CodeGenerator) nextInstruction() int {
-	return len(c.Instructions)
+	return c.instructionOffset
 }
 
 func (c *CodeGenerator) VisitReturnStatement(returnStatement *ast.ReturnStatement) ast.Repr {
@@ -101,20 +103,21 @@ func (c *CodeGenerator) VisitSwitchStatement(switchStatement *ast.SwitchStatemen
 func (c *CodeGenerator) VisitWhileStatement(whileStatement *ast.WhileStatement) ast.Repr {
 	conditionIndex := c.nextInstruction()
 
-	// visit the body first, because condition need to know the end index of the body.
-	whileBodyInstructions := c.generateBranch(whileStatement.Block)
-
 	// emit instruction for condition
 	whileStatement.Test.Accept(c)
 
-	// body end index = total instructions + 3 jumps (2 for condition, 1 for loop-back)
-	bodyEndIndex := len(c.Instructions) + len(whileBodyInstructions) + 3
-
 	// There would be 2 jump instructions after the condition, before the start of body.
 	// Therefore, body start index = next instruction + 2
+	// IMPORTANT: order matters: nextInstruction should be called before visiting body.
 	bodyStartIndex := c.nextInstruction() + 2
 
+	// visit the body first, because condition need to know the end index of the body.
+	whileBodyInstructions := c.generateBranch(whileStatement.Block)
+
 	c.emit(instructions.NewJumpIf(bodyStartIndex))
+
+	// body end index = total instructions + 2 jumps (2 for condition, 1 for loop-back)
+	bodyEndIndex := c.nextInstruction() + 2
 	c.emit(instructions.NewGoto(bodyEndIndex))
 
 	c.Instructions = append(c.Instructions, whileBodyInstructions...)
