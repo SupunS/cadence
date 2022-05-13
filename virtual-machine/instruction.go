@@ -20,6 +20,7 @@ package virtual_machine
 
 type Instruction interface {
 	Execute(vm *VirtualMachine)
+	String() string
 }
 
 const NO_OP = -1

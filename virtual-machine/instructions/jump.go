@@ -19,6 +19,7 @@
 package instructions
 
 import (
+	"fmt"
 	vm "github.com/onflow/cadence/virtual-machine"
 )
 
@@ -35,6 +36,11 @@ func (i GOTO) Execute(vm *vm.VirtualMachine) {
 	vm.NextIndex = i.Instruction
 }
 
+func (i GOTO) String() string {
+	return fmt.Sprintf("GOTO %d", i.Instruction)
+}
+
+
 // ICOMP instruction
 type ICOMP struct {
 	Instruction int // instruction to jump to, if false
@@ -49,4 +55,8 @@ func (i ICOMP) Execute(vm *vm.VirtualMachine) {
 	if lhsOp != rhsOp {
 		vm.NextIndex = i.Instruction
 	}
+}
+
+func (i ICOMP) String() string {
+	return fmt.Sprintf("ICONST %d", i.Instruction)
 }

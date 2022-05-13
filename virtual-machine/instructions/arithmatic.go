@@ -32,3 +32,7 @@ func (i IADD) Execute(vm *vm.VirtualMachine) {
 	lhsOp := vm.CurrentStackFrame().Pop().(int)
 	vm.CurrentStackFrame().Push(lhsOp + rhsOp)
 }
+
+func (i IADD) String() string {
+	return "IADD"
+}

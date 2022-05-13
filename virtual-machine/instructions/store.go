@@ -19,6 +19,7 @@
 package instructions
 
 import (
+	"fmt"
 	vm "github.com/onflow/cadence/virtual-machine"
 )
 
@@ -31,4 +32,8 @@ var _ vm.Instruction = ISTORE{}
 
 func (i ISTORE) Execute(vm *vm.VirtualMachine) {
 	vm.CurrentStackFrame().Set(i.Index, vm.CurrentStackFrame().Pop())
+}
+
+func (i ISTORE) String() string {
+	return fmt.Sprintf("ISTORE %d", i.Index)
 }

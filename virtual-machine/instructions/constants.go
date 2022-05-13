@@ -19,6 +19,7 @@
 package instructions
 
 import (
+	"fmt"
 	vm "github.com/onflow/cadence/virtual-machine"
 )
 
@@ -31,4 +32,8 @@ var _ vm.Instruction = ICONST{}
 
 func (i ICONST) Execute(vm *vm.VirtualMachine) {
 	vm.CurrentStackFrame().Push(i.Value)
+}
+
+func (i ICONST) String() string {
+	return fmt.Sprintf("ICONST %d", i.Value)
 }

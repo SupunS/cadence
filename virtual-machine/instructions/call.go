@@ -31,3 +31,7 @@ var _ vm.Instruction = FCALL{}
 
 func (i FCALL) Execute(vm *vm.VirtualMachine) {
 }
+
+func (i FCALL) String() string {
+	return "FCALL"
+}

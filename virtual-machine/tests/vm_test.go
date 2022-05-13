@@ -19,6 +19,7 @@
 package tests
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -73,6 +74,10 @@ func TestVM(t *testing.T) {
 
 	vm := virtual_machine.NewVirtualMachine()
 	vm.Execute(ins)
+
+	for _, instruction := range ins {
+		fmt.Println(instruction.String())
+	}
 }
 
 func BenchmarkVM(b *testing.B) {

@@ -33,6 +33,10 @@ func (i PRINT) Execute(m *vm.VirtualMachine) {
 	fmt.Println(m.CurrentStackFrame().Pop())
 }
 
+func (i PRINT) String() string {
+	return "PRINT"
+}
+
 // STOP instruction
 type STOP struct{}
 
@@ -40,4 +44,8 @@ var _ vm.Instruction = STOP{}
 
 func (i STOP) Execute(m *vm.VirtualMachine) {
 	m.NextIndex = vm.NO_OP
+}
+
+func (i STOP) String() string {
+	return "STOP"
 }

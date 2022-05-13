@@ -19,6 +19,7 @@
 package instructions
 
 import (
+	"fmt"
 	vm "github.com/onflow/cadence/virtual-machine"
 )
 
@@ -31,4 +32,8 @@ var _ vm.Instruction = ILOAD{}
 
 func (i ILOAD) Execute(vm *vm.VirtualMachine) {
 	vm.CurrentStackFrame().Push(vm.CurrentStackFrame().Get(i.Index))
+}
+
+func (i ILOAD) String() string {
+	return fmt.Sprintf("ILOAD %d", i.Index)
 }
