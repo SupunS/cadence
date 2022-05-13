@@ -20,20 +20,30 @@ package instructions
 
 import (
 	"fmt"
+	"github.com/onflow/cadence/runtime/interpreter"
+	"github.com/onflow/cadence/runtime/sema"
 	vm "github.com/onflow/cadence/virtual-machine"
+	"math/big"
 )
 
 // ICONST instruction
 type ICONST struct {
-	Value int
+	Value *big.Int
 }
 
 var _ vm.Instruction = ICONST{}
 
+func NewIConst(value *big.Int) ICONST {
+	return ICONST{
+		Value: value,
+	}
+}
+
 func (i ICONST) Execute(vm *vm.VirtualMachine) {
-	vm.CurrentStackFrame().Push(i.Value)
+	value := interpreter.NewIntValue(i.Value, sema.IntType)
+	vm.CurrentStackFrame().Push(value)
 }
 
 func (i ICONST) String() string {
-	return fmt.Sprintf("ICONST %d", i.Value)
+	return fmt.Sprintf("ICONST %s", i.Value.String())
 }

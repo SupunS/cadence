@@ -20,6 +20,7 @@ package instructions
 
 import (
 	"fmt"
+	"github.com/onflow/cadence/runtime/interpreter"
 	vm "github.com/onflow/cadence/virtual-machine"
 )
 
@@ -32,6 +33,12 @@ type GOTO struct {
 
 var _ vm.Instruction = GOTO{}
 
+func NewGoto(index int) GOTO {
+	return GOTO{
+		Instruction: index,
+	}
+}
+
 func (i GOTO) Execute(vm *vm.VirtualMachine) {
 	vm.NextIndex = i.Instruction
 }
@@ -40,23 +47,26 @@ func (i GOTO) String() string {
 	return fmt.Sprintf("GOTO %d", i.Instruction)
 }
 
-
-// ICOMP instruction
-type ICOMP struct {
-	Instruction int // instruction to jump to, if false
+// JUMPIF instruction
+type JUMPIF struct {
+	Instruction int //Instruction int // instruction to jump to, if true
 }
 
-var _ vm.Instruction = ICOMP{}
+var _ vm.Instruction = JUMPIF{}
 
-func (i ICOMP) Execute(vm *vm.VirtualMachine) {
-	rhsOp := vm.CurrentStackFrame().Pop().(int)
-	lhsOp := vm.CurrentStackFrame().Pop().(int)
+func NewJumpIf(index int) JUMPIF {
+	return JUMPIF{
+		Instruction: index,
+	}
+}
 
-	if lhsOp != rhsOp {
+func (i JUMPIF) Execute(vm *vm.VirtualMachine) {
+	condition := vm.CurrentStackFrame().Pop().(interpreter.BoolValue)
+	if condition {
 		vm.NextIndex = i.Instruction
 	}
 }
 
-func (i ICOMP) String() string {
-	return fmt.Sprintf("ICONST %d", i.Instruction)
+func (i JUMPIF) String() string {
+	return fmt.Sprintf("JUMPIF %d", i.Instruction)
 }

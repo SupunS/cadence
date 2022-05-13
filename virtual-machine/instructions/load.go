@@ -30,6 +30,12 @@ type ILOAD struct {
 
 var _ vm.Instruction = ILOAD{}
 
+func NewILoad(index int) ILOAD {
+	return ILOAD{
+		Index: index,
+	}
+}
+
 func (i ILOAD) Execute(vm *vm.VirtualMachine) {
 	vm.CurrentStackFrame().Push(vm.CurrentStackFrame().Get(i.Index))
 }

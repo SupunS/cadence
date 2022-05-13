@@ -19,23 +19,46 @@
 package instructions
 
 import (
+	"fmt"
 	"github.com/onflow/cadence/runtime/interpreter"
 	vm "github.com/onflow/cadence/virtual-machine"
 )
 
-// IADD instruction
-type IADD struct{}
+// IEQ instruction
+type IEQ struct{}
 
-var _ vm.Instruction = IADD{}
+var _ vm.Instruction = IEQ{}
 
-var IAddInstruction = IADD{}
+var IEqual = INEQ{}
 
-func (i IADD) Execute(vm *vm.VirtualMachine) {
+func (i IEQ) Execute(vm *vm.VirtualMachine) {
 	rhsOp := vm.CurrentStackFrame().Pop().(interpreter.IntegerValue)
 	lhsOp := vm.CurrentStackFrame().Pop().(interpreter.IntegerValue)
-	vm.CurrentStackFrame().Push(lhsOp.Plus(rhsOp))
+
+	isEqual := lhsOp.Equal(nil, nil, rhsOp)
+	vm.CurrentStackFrame().Push(interpreter.BoolValue(isEqual))
 }
 
-func (i IADD) String() string {
-	return "IADD"
+func (i IEQ) String() string {
+	return fmt.Sprintf("IEQ")
+}
+
+
+// INEQ instruction
+type INEQ struct{}
+
+var _ vm.Instruction = INEQ{}
+
+var INotEqual = INEQ{}
+
+func (i INEQ) Execute(vm *vm.VirtualMachine) {
+	rhsOp := vm.CurrentStackFrame().Pop().(interpreter.IntegerValue)
+	lhsOp := vm.CurrentStackFrame().Pop().(interpreter.IntegerValue)
+
+	isEqual := lhsOp.Equal(nil, nil, rhsOp)
+	vm.CurrentStackFrame().Push(interpreter.BoolValue(!isEqual))
+}
+
+func (i INEQ) String() string {
+	return fmt.Sprintf("INEQ")
 }

@@ -20,6 +20,7 @@ package tests
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,6 +29,7 @@ import (
 	"github.com/onflow/cadence/runtime/parser2"
 
 	"github.com/onflow/cadence/virtual-machine"
+	"github.com/onflow/cadence/virtual-machine/codegen"
 	"github.com/onflow/cadence/virtual-machine/instructions"
 )
 
@@ -35,38 +37,39 @@ const LOOP_COUNT = 1000
 
 func TestVM(t *testing.T) {
 	ins := []virtual_machine.Instruction{
-		instructions.ICONST{0},
+		instructions.ICONST{big.NewInt(0)},
 		instructions.ISTORE{0}, // result-var index
 
-		instructions.ICONST{0},
+		instructions.ICONST{big.NewInt(0)},
 		instructions.ISTORE{1}, // loop-var index
 
 		// start of loop
-		instructions.ILOAD{0},
-		instructions.ICONST{LOOP_COUNT},
-		instructions.ICOMP{8}, // if false, jump to loop body
-		instructions.GOTO{17}, // jump to end-of-loop
+		instructions.ILOAD{1},
+		instructions.ICONST{big.NewInt(LOOP_COUNT)},
+		instructions.INEQ{},
+		instructions.JUMPIF{9},  // if true, jump to loop body
+		instructions.GOTO{18}, // jump to end-of-loop
 
 		// loop body
 
 		// update loop variable
-		instructions.ICONST{1}, // load 1
-		instructions.ILOAD{0},  // load loop-var
-		instructions.IADD{},    // add 1 to loop-var
-		instructions.ISTORE{0}, // store loop-var
+		instructions.ICONST{big.NewInt(1)}, // load 1
+		instructions.ILOAD{1},              // load loop-var
+		instructions.IADD{},                // add 1 to loop-var
+		instructions.ISTORE{1},             // store loop-var
 
 		// update result variable: increment by 5
-		instructions.ICONST{5}, // load 5
-		instructions.ILOAD{1},  // load result-var
-		instructions.IADD{},    // add 1 to result-var
-		instructions.ISTORE{1}, // store result-var
+		instructions.ICONST{big.NewInt(5)}, // load 5
+		instructions.ILOAD{0},              // load result-var
+		instructions.IADD{},                // add 1 to result-var
+		instructions.ISTORE{0},             // store result-var
 
 		instructions.GOTO{4}, // go to start of loop (condition)
 
 		// end of loop
 
 		// print result
-		instructions.ILOAD{1},
+		instructions.ILOAD{0},
 		instructions.PRINT{},
 
 		instructions.STOP{},
@@ -80,33 +83,60 @@ func TestVM(t *testing.T) {
 	}
 }
 
+func TestCodeGen(t *testing.T) {
+	program, err := parser2.ParseProgram(`
+        fun test() {
+			var i = 0
+			var result = 0
+			while i != 1000 {
+				i = i + 1
+				result = result + 5
+			}
+	    }
+	`)
+	assert.NoError(t, err)
+
+	//block := program.FunctionDeclarations()[0].FunctionBlock.Block
+
+	codeGen := codegen.NewCodeGenerator()
+	instructions := codeGen.Generate(program)
+
+	for _, instruction := range instructions {
+		fmt.Println(instruction.String())
+	}
+
+	vm := virtual_machine.NewVirtualMachine()
+	vm.Execute(instructions)
+}
+
 func BenchmarkVM(b *testing.B) {
 	instructions := []virtual_machine.Instruction{
-		instructions.ICONST{0},
+		instructions.ICONST{big.NewInt(0)},
 		instructions.ISTORE{0}, // result-var index
 
-		instructions.ICONST{0},
+		instructions.ICONST{big.NewInt(0)},
 		instructions.ISTORE{1}, // loop-var index
 
 		// start of loop
 		instructions.ILOAD{0},
-		instructions.ICONST{LOOP_COUNT},
-		instructions.ICOMP{8}, // if false, jump to loop body
-		instructions.GOTO{17}, // jump to end-of-loop
+		instructions.ICONST{big.NewInt(LOOP_COUNT)},
+		instructions.INEQ{},
+		instructions.JUMPIF{9},  // if true, jump to loop body
+		instructions.GOTO{18}, // jump to end-of-loop
 
 		// loop body
 
 		// update loop variable
-		instructions.ICONST{1}, // load 1
-		instructions.ILOAD{0},  // load loop-var
-		instructions.IADD{},    // add 1 to loop-var
-		instructions.ISTORE{0}, // store loop-var
+		instructions.ICONST{big.NewInt(1)}, // load 1
+		instructions.ILOAD{0},              // load loop-var
+		instructions.IADD{},                // add 1 to loop-var
+		instructions.ISTORE{0},             // store loop-var
 
 		// update result variable
-		instructions.ICONST{2}, // load 2
-		instructions.ILOAD{1},  // load result-var
-		instructions.IADD{},    // add 1 to result-var
-		instructions.ISTORE{1}, // store result-var
+		instructions.ICONST{big.NewInt(2)}, // load 2
+		instructions.ILOAD{1},              // load result-var
+		instructions.IADD{},                // add 1 to result-var
+		instructions.ISTORE{1},             // store result-var
 
 		instructions.GOTO{4}, // go to start of loop (condition)
 
