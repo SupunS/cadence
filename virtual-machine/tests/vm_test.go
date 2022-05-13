@@ -37,42 +37,42 @@ const LOOP_COUNT = 1000
 
 func TestVM(t *testing.T) {
 	ins := []virtual_machine.Instruction{
-		instructions.ICONST{big.NewInt(0)},
-		instructions.ISTORE{0}, // result-var index
+		instructions.IConst{big.NewInt(0)},
+		instructions.Store{0}, // result-var index
 
-		instructions.ICONST{big.NewInt(0)},
-		instructions.ISTORE{1}, // loop-var index
+		instructions.IConst{big.NewInt(0)},
+		instructions.Store{1}, // loop-var index
 
 		// start of loop
-		instructions.ILOAD{1},
-		instructions.ICONST{big.NewInt(LOOP_COUNT)},
-		instructions.INEQ{},
-		instructions.JUMPIF{9}, // if true, jump to loop body
-		instructions.GOTO{18},  // jump to end-of-loop
+		instructions.Load{1},
+		instructions.IConst{big.NewInt(LOOP_COUNT)},
+		instructions.NotEqual{},
+		instructions.JumpIf{9}, // if true, jump to loop body
+		instructions.Jump{18},  // jump to end-of-loop
 
 		// loop body
 
 		// update loop variable
-		instructions.ICONST{big.NewInt(1)}, // load 1
-		instructions.ILOAD{1},              // load loop-var
-		instructions.IADD{},                // add 1 to loop-var
-		instructions.ISTORE{1},             // store loop-var
+		instructions.IConst{big.NewInt(1)}, // load 1
+		instructions.Load{1},               // load loop-var
+		instructions.IntegerAdd{},          // add 1 to loop-var
+		instructions.Store{1},              // store loop-var
 
 		// update result variable: increment by 5
-		instructions.ICONST{big.NewInt(5)}, // load 5
-		instructions.ILOAD{0},              // load result-var
-		instructions.IADD{},                // add 1 to result-var
-		instructions.ISTORE{0},             // store result-var
+		instructions.IConst{big.NewInt(5)}, // load 5
+		instructions.Load{0},               // load result-var
+		instructions.IntegerAdd{},          // add 1 to result-var
+		instructions.Store{0},              // store result-var
 
-		instructions.GOTO{4}, // go to start of loop (condition)
+		instructions.Jump{4}, // go to start of loop (condition)
 
 		// end of loop
 
 		// print result
-		instructions.ILOAD{0},
-		instructions.PRINT{},
+		instructions.Load{0},
+		instructions.Print{},
 
-		instructions.STOP{},
+		instructions.Stop{},
 	}
 
 	vm := virtual_machine.NewVirtualMachine()
@@ -109,38 +109,38 @@ func TestCodeGen(t *testing.T) {
 
 func BenchmarkInstructions(b *testing.B) {
 	instructions := []virtual_machine.Instruction{
-		instructions.ICONST{big.NewInt(0)},
-		instructions.ISTORE{0}, // result-var index
+		instructions.IConst{big.NewInt(0)},
+		instructions.Store{0}, // result-var index
 
-		instructions.ICONST{big.NewInt(0)},
-		instructions.ISTORE{1}, // loop-var index
+		instructions.IConst{big.NewInt(0)},
+		instructions.Store{1}, // loop-var index
 
 		// start of loop
-		instructions.ILOAD{0},
-		instructions.ICONST{big.NewInt(LOOP_COUNT)},
-		instructions.INEQ{},
-		instructions.JUMPIF{9}, // if true, jump to loop body
-		instructions.GOTO{18},  // jump to end-of-loop
+		instructions.Load{0},
+		instructions.IConst{big.NewInt(LOOP_COUNT)},
+		instructions.NotEqual{},
+		instructions.JumpIf{9}, // if true, jump to loop body
+		instructions.Jump{18},  // jump to end-of-loop
 
 		// loop body
 
 		// update loop variable
-		instructions.ICONST{big.NewInt(1)}, // load 1
-		instructions.ILOAD{0},              // load loop-var
-		instructions.IADD{},                // add 1 to loop-var
-		instructions.ISTORE{0},             // store loop-var
+		instructions.IConst{big.NewInt(1)}, // load 1
+		instructions.Load{0},               // load loop-var
+		instructions.IntegerAdd{},          // add 1 to loop-var
+		instructions.Store{0},              // store loop-var
 
 		// update result variable
-		instructions.ICONST{big.NewInt(2)}, // load 2
-		instructions.ILOAD{1},              // load result-var
-		instructions.IADD{},                // add 1 to result-var
-		instructions.ISTORE{1},             // store result-var
+		instructions.IConst{big.NewInt(2)}, // load 2
+		instructions.Load{1},               // load result-var
+		instructions.IntegerAdd{},          // add 1 to result-var
+		instructions.Store{1},              // store result-var
 
-		instructions.GOTO{4}, // go to start of loop (condition)
+		instructions.Jump{4}, // go to start of loop (condition)
 
 		// end of loop
 
-		instructions.STOP{},
+		instructions.Stop{},
 	}
 
 	vm := virtual_machine.NewVirtualMachine()

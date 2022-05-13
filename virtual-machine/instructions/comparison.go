@@ -24,41 +24,40 @@ import (
 	vm "github.com/onflow/cadence/virtual-machine"
 )
 
-// IEQ instruction
-type IEQ struct{}
+// Equal instruction
+type Equal struct{}
 
-var _ vm.Instruction = IEQ{}
+var _ vm.Instruction = Equal{}
 
-var IEqual = INEQ{}
+var EqualIns = NotEqual{}
 
-func (i IEQ) Execute(vm *vm.VirtualMachine) {
-	rhsOp := vm.CurrentStackFrame().Pop().(interpreter.IntegerValue)
-	lhsOp := vm.CurrentStackFrame().Pop().(interpreter.IntegerValue)
+func (i Equal) Execute(vm *vm.VirtualMachine) {
+	rhsOp := vm.CurrentStackFrame().Pop().(interpreter.EquatableValue)
+	lhsOp := vm.CurrentStackFrame().Pop().(interpreter.EquatableValue)
 
 	isEqual := lhsOp.Equal(nil, nil, rhsOp)
 	vm.CurrentStackFrame().Push(interpreter.BoolValue(isEqual))
 }
 
-func (i IEQ) String() string {
-	return fmt.Sprintf("IEQ")
+func (i Equal) String() string {
+	return fmt.Sprintf("EQ")
 }
 
+// NotEqual instruction
+type NotEqual struct{}
 
-// INEQ instruction
-type INEQ struct{}
+var _ vm.Instruction = NotEqual{}
 
-var _ vm.Instruction = INEQ{}
+var NotEqualIns = NotEqual{}
 
-var INotEqual = INEQ{}
-
-func (i INEQ) Execute(vm *vm.VirtualMachine) {
-	rhsOp := vm.CurrentStackFrame().Pop().(interpreter.IntegerValue)
-	lhsOp := vm.CurrentStackFrame().Pop().(interpreter.IntegerValue)
+func (i NotEqual) Execute(vm *vm.VirtualMachine) {
+	rhsOp := vm.CurrentStackFrame().Pop().(interpreter.EquatableValue)
+	lhsOp := vm.CurrentStackFrame().Pop().(interpreter.EquatableValue)
 
 	isEqual := lhsOp.Equal(nil, nil, rhsOp)
 	vm.CurrentStackFrame().Push(interpreter.BoolValue(!isEqual))
 }
 
-func (i INEQ) String() string {
-	return fmt.Sprintf("INEQ")
+func (i NotEqual) String() string {
+	return fmt.Sprintf("NEQ")
 }

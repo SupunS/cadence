@@ -26,24 +26,24 @@ import (
 	"math/big"
 )
 
-// ICONST instruction
-type ICONST struct {
+// IConst instruction
+type IConst struct {
 	Value *big.Int
 }
 
-var _ vm.Instruction = ICONST{}
+var _ vm.Instruction = IConst{}
 
-func NewIConst(value *big.Int) ICONST {
-	return ICONST{
+func NewIConst(value *big.Int) IConst {
+	return IConst{
 		Value: value,
 	}
 }
 
-func (i ICONST) Execute(vm *vm.VirtualMachine) {
+func (i IConst) Execute(vm *vm.VirtualMachine) {
 	value := interpreter.NewIntValue(i.Value, sema.IntType)
 	vm.CurrentStackFrame().Push(value)
 }
 
-func (i ICONST) String() string {
+func (i IConst) String() string {
 	return fmt.Sprintf("ICONST %s", i.Value.String())
 }

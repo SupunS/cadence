@@ -23,23 +23,25 @@ import (
 	vm "github.com/onflow/cadence/virtual-machine"
 )
 
-// ILOAD instruction
-type ILOAD struct {
+// Load instruction reads a local variable from the given index
+// of the stack and pushes it onto the top of the stack.
+type Load struct {
 	Index int
 }
 
-var _ vm.Instruction = ILOAD{}
+var _ vm.Instruction = Load{}
 
-func NewILoad(index int) ILOAD {
-	return ILOAD{
+func NewLoad(index int) Load {
+	return Load{
 		Index: index,
 	}
 }
 
-func (i ILOAD) Execute(vm *vm.VirtualMachine) {
-	vm.CurrentStackFrame().Push(vm.CurrentStackFrame().Get(i.Index))
+func (i Load) Execute(vm *vm.VirtualMachine) {
+	value := vm.CurrentStackFrame().Get(i.Index)
+	vm.CurrentStackFrame().Push(value)
 }
 
-func (i ILOAD) String() string {
-	return fmt.Sprintf("ILOAD %d", i.Index)
+func (i Load) String() string {
+	return fmt.Sprintf("LOAD %d", i.Index)
 }

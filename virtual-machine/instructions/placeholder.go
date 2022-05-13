@@ -23,23 +23,24 @@ import (
 	vm "github.com/onflow/cadence/virtual-machine"
 )
 
-// FCALL instruction
-type FUNCTION struct {
+// Function instruction is just a placeholder, to mark the start of a function.
+// This is not needed in the future, just here for testing purpose.
+type Function struct {
 	Name string
 }
 
-func NewFunction(name string) FUNCTION {
-	return FUNCTION{
+func NewFunction(name string) Function {
+	return Function{
 		name,
 	}
 }
 
-var _ vm.Instruction = FUNCTION{}
+var _ vm.Instruction = Function{}
 
-func (i FUNCTION) Execute(*vm.VirtualMachine) {
+func (i Function) Execute(*vm.VirtualMachine) {
 	//no-op
 }
 
-func (i FUNCTION) String() string {
+func (i Function) String() string {
 	return fmt.Sprintf("FUNCTION %s:", i.Name)
 }

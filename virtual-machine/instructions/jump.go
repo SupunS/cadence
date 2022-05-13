@@ -26,47 +26,47 @@ import (
 
 // Contains all jump instructions.
 
-// GOTO instruction
-type GOTO struct {
+// Jump instruction
+type Jump struct {
 	Instruction int
 }
 
-var _ vm.Instruction = GOTO{}
+var _ vm.Instruction = Jump{}
 
-func NewGoto(index int) GOTO {
-	return GOTO{
+func NewJump(index int) Jump {
+	return Jump{
 		Instruction: index,
 	}
 }
 
-func (i GOTO) Execute(vm *vm.VirtualMachine) {
+func (i Jump) Execute(vm *vm.VirtualMachine) {
 	vm.NextIndex = i.Instruction
 }
 
-func (i GOTO) String() string {
-	return fmt.Sprintf("GOTO %d", i.Instruction)
+func (i Jump) String() string {
+	return fmt.Sprintf("JUMP %d", i.Instruction)
 }
 
-// JUMPIF instruction
-type JUMPIF struct {
+// JumpIf instruction
+type JumpIf struct {
 	Instruction int //Instruction int // instruction to jump to, if true
 }
 
-var _ vm.Instruction = JUMPIF{}
+var _ vm.Instruction = JumpIf{}
 
-func NewJumpIf(index int) JUMPIF {
-	return JUMPIF{
+func NewJumpIf(index int) JumpIf {
+	return JumpIf{
 		Instruction: index,
 	}
 }
 
-func (i JUMPIF) Execute(vm *vm.VirtualMachine) {
+func (i JumpIf) Execute(vm *vm.VirtualMachine) {
 	condition := vm.CurrentStackFrame().Pop().(interpreter.BoolValue)
 	if condition {
 		vm.NextIndex = i.Instruction
 	}
 }
 
-func (i JUMPIF) String() string {
+func (i JumpIf) String() string {
 	return fmt.Sprintf("JUMPIF %d", i.Instruction)
 }

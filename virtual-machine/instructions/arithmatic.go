@@ -23,19 +23,19 @@ import (
 	vm "github.com/onflow/cadence/virtual-machine"
 )
 
-// IADD instruction
-type IADD struct{}
+// IntegerAdd instruction
+type IntegerAdd struct{}
 
-var _ vm.Instruction = IADD{}
+var _ vm.Instruction = IntegerAdd{}
 
-var IAddInstruction = IADD{}
+var IAddIns = IntegerAdd{}
 
-func (i IADD) Execute(vm *vm.VirtualMachine) {
+func (i IntegerAdd) Execute(vm *vm.VirtualMachine) {
 	rhsOp := vm.CurrentStackFrame().Pop().(interpreter.IntegerValue)
 	lhsOp := vm.CurrentStackFrame().Pop().(interpreter.IntegerValue)
 	vm.CurrentStackFrame().Push(lhsOp.Plus(rhsOp))
 }
 
-func (i IADD) String() string {
+func (i IntegerAdd) String() string {
 	return "IADD"
 }

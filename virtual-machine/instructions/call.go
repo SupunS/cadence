@@ -22,16 +22,22 @@ import (
 	vm "github.com/onflow/cadence/virtual-machine"
 )
 
-// FCALL instruction
-type FCALL struct {
+// FunctionCall instruction
+type FunctionCall struct {
 	Index int
 }
 
-var _ vm.Instruction = FCALL{}
-
-func (i FCALL) Execute(vm *vm.VirtualMachine) {
+func NewFunctionCall(index int) FunctionCall {
+	return FunctionCall{
+		Index: index,
+	}
 }
 
-func (i FCALL) String() string {
+var _ vm.Instruction = FunctionCall{}
+
+func (i FunctionCall) Execute(vm *vm.VirtualMachine) {
+}
+
+func (i FunctionCall) String() string {
 	return "FCALL"
 }

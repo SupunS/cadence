@@ -66,8 +66,8 @@ func NewCodeGenerator() *CodeGenerator {
 
 func (c *CodeGenerator) Generate(program *ast.Program) []vm.Instruction {
 	program.Accept(c)
-	//c.emit(instructions.PRINT{})
-	c.emit(instructions.STOP{})
+	c.emit(instructions.Print{})
+	c.emit(instructions.StopIns)
 	return c.Instructions
 }
 
@@ -118,12 +118,12 @@ func (c *CodeGenerator) VisitWhileStatement(whileStatement *ast.WhileStatement) 
 
 	// body end index = total instructions + 2 jumps (2 for condition, 1 for loop-back)
 	bodyEndIndex := c.nextInstruction() + 2
-	c.emit(instructions.NewGoto(bodyEndIndex))
+	c.emit(instructions.NewJump(bodyEndIndex))
 
 	c.Instructions = append(c.Instructions, whileBodyInstructions...)
 
 	// go back to condition
-	c.emit(instructions.NewGoto(conditionIndex))
+	c.emit(instructions.NewJump(conditionIndex))
 
 	return nil
 }
@@ -217,7 +217,7 @@ func (c *CodeGenerator) VisitIdentifierExpression(identifierExpression *ast.Iden
 	varName := identifierExpression.Identifier.Identifier
 	varIndex := c.scope.GetVarIndex(varName)
 
-	c.emit(instructions.NewILoad(varIndex))
+	c.emit(instructions.NewLoad(varIndex))
 
 	return nil
 }
@@ -248,9 +248,9 @@ func (c *CodeGenerator) VisitBinaryExpression(binaryExpression *ast.BinaryExpres
 
 	switch binaryExpression.Operation {
 	case ast.OperationPlus:
-		c.emit(instructions.IAddInstruction)
+		c.emit(instructions.IAddIns)
 	case ast.OperationNotEqual:
-		c.emit(instructions.INotEqual)
+		c.emit(instructions.NotEqualIns)
 	default:
 		panic("Unsupported")
 	}

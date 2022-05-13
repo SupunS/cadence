@@ -24,28 +24,31 @@ import (
 	vm "github.com/onflow/cadence/virtual-machine"
 )
 
-// PRINT instruction
-type PRINT struct{}
+// Print instruction.
+// This is a temporary instruction for testing purpose.
+type Print struct{}
 
-var _ vm.Instruction = PRINT{}
+var _ vm.Instruction = Print{}
 
-func (i PRINT) Execute(m *vm.VirtualMachine) {
+func (i Print) Execute(m *vm.VirtualMachine) {
 	fmt.Println(m.CurrentStackFrame().Pop())
 }
 
-func (i PRINT) String() string {
+func (i Print) String() string {
 	return "PRINT"
 }
 
-// STOP instruction
-type STOP struct{}
+// Stop instruction
+type Stop struct{}
 
-var _ vm.Instruction = STOP{}
+var _ vm.Instruction = Stop{}
 
-func (i STOP) Execute(m *vm.VirtualMachine) {
+var StopIns = Stop{}
+
+func (i Stop) Execute(m *vm.VirtualMachine) {
 	m.NextIndex = vm.NO_OP
 }
 
-func (i STOP) String() string {
+func (i Stop) String() string {
 	return "STOP"
 }

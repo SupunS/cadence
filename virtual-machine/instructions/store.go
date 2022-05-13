@@ -23,23 +23,25 @@ import (
 	vm "github.com/onflow/cadence/virtual-machine"
 )
 
-// ISTORE instruction
-type ISTORE struct {
+// Store instruction reads a values from the top of the stack and
+// stores it in a local variable at a given index.
+type Store struct {
 	Index int
 }
 
-var _ vm.Instruction = ISTORE{}
+var _ vm.Instruction = Store{}
 
-func NewIStore(index int) ISTORE {
-	return ISTORE{
+func NewIStore(index int) Store {
+	return Store{
 		Index: index,
 	}
 }
 
-func (i ISTORE) Execute(vm *vm.VirtualMachine) {
-	vm.CurrentStackFrame().Set(i.Index, vm.CurrentStackFrame().Pop())
+func (i Store) Execute(vm *vm.VirtualMachine) {
+	value := vm.CurrentStackFrame().Pop()
+	vm.CurrentStackFrame().Set(i.Index, value)
 }
 
-func (i ISTORE) String() string {
-	return fmt.Sprintf("ISTORE %d", i.Index)
+func (i Store) String() string {
+	return fmt.Sprintf("STORE %d", i.Index)
 }
