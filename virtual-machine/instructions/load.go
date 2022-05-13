@@ -37,9 +37,9 @@ func NewLoad(index int) Load {
 	}
 }
 
-func (i Load) Execute(vm *vm.VirtualMachine) {
-	value := vm.CurrentStackFrame().Get(i.Index)
-	vm.CurrentStackFrame().Push(value)
+func (i Load) Execute(ctx *vm.ExecutionContext) {
+	value := ctx.CurrentStackFrame().Get(i.Index)
+	ctx.CurrentStackFrame().Push(value)
 }
 
 func (i Load) String() string {

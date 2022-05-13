@@ -20,6 +20,7 @@ package tests
 
 import (
 	"fmt"
+	"github.com/onflow/cadence/runtime/interpreter"
 	"math/big"
 	"testing"
 
@@ -38,10 +39,10 @@ const LOOP_COUNT = 1000
 func TestVM(t *testing.T) {
 	ins := []virtual_machine.Instruction{
 		instructions.IConst{big.NewInt(0)},
-		instructions.Store{0}, // result-var index
+		instructions.NewStore(0), // result-var index
 
 		instructions.IConst{big.NewInt(0)},
-		instructions.Store{1}, // loop-var index
+		instructions.NewStore(1), // loop-var index
 
 		// start of loop
 		instructions.Load{1},
@@ -56,13 +57,13 @@ func TestVM(t *testing.T) {
 		instructions.IConst{big.NewInt(1)}, // load 1
 		instructions.Load{1},               // load loop-var
 		instructions.IntegerAdd{},          // add 1 to loop-var
-		instructions.Store{1},              // store loop-var
+		instructions.NewStore(1),           // store loop-var
 
 		// update result variable: increment by 5
 		instructions.IConst{big.NewInt(5)}, // load 5
 		instructions.Load{0},               // load result-var
 		instructions.IntegerAdd{},          // add 1 to result-var
-		instructions.Store{0},              // store result-var
+		instructions.NewStore(0),           // store result-var
 
 		instructions.Jump{4}, // go to start of loop (condition)
 
@@ -110,10 +111,10 @@ func TestCodeGen(t *testing.T) {
 func BenchmarkInstructions(b *testing.B) {
 	instructions := []virtual_machine.Instruction{
 		instructions.IConst{big.NewInt(0)},
-		instructions.Store{0}, // result-var index
+		instructions.NewStore(0), // result-var index
 
 		instructions.IConst{big.NewInt(0)},
-		instructions.Store{1}, // loop-var index
+		instructions.NewStore(1), // loop-var index
 
 		// start of loop
 		instructions.Load{0},
@@ -128,13 +129,13 @@ func BenchmarkInstructions(b *testing.B) {
 		instructions.IConst{big.NewInt(1)}, // load 1
 		instructions.Load{0},               // load loop-var
 		instructions.IntegerAdd{},          // add 1 to loop-var
-		instructions.Store{0},              // store loop-var
+		instructions.NewStore(0),           // store loop-var
 
 		// update result variable
 		instructions.IConst{big.NewInt(2)}, // load 2
 		instructions.Load{1},               // load result-var
 		instructions.IntegerAdd{},          // add 1 to result-var
-		instructions.Store{1},              // store result-var
+		instructions.NewStore(1),           // store result-var
 
 		instructions.Jump{4}, // go to start of loop (condition)
 
@@ -192,6 +193,51 @@ func BenchmarkVM(b *testing.B) {
 
 	codeGen := codegen.NewCodeGenerator()
 	instructions := codeGen.Generate(program)
+	vm := virtual_machine.NewVirtualMachine()
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		vm.Execute(instructions)
+	}
+}
+
+func BenchmarkVMInstructions(b *testing.B) {
+	instructions := []virtual_machine.Instruction{
+		instructions.I64Const{0},
+		instructions.NewStore(0), // result-var index
+
+		instructions.I64Const{0},
+		instructions.NewStore(1), // loop-var index
+
+		// start of loop
+		instructions.Load{0},
+		instructions.I64Const{1000},
+		instructions.NotEqual{},
+		instructions.JumpIf{9}, // if true, jump to loop body
+		instructions.Jump{18},  // jump to end-of-loop
+
+		// loop body
+
+		// update loop variable
+		instructions.I64Const{1},  // load 1
+		instructions.Load{0},      // load loop-var
+		instructions.IntegerAdd{}, // add 1 to loop-var
+		instructions.NewStore(0),  // store loop-var
+
+		// update result variable
+		instructions.I64Const{2},  // load 2
+		instructions.Load{1},      // load result-var
+		instructions.IntegerAdd{}, // add 1 to result-var
+		instructions.NewStore(1),  // store result-var
+
+		instructions.Jump{4}, // go to start of loop (condition)
+
+		// end of loop
+
+		instructions.Stop{},
+	}
+
 	vm := virtual_machine.NewVirtualMachine()
 
 	b.ResetTimer()
@@ -414,4 +460,79 @@ func (t TestASTVisitor) VisitImportDeclaration(declaration *ast.ImportDeclaratio
 
 func (t TestASTVisitor) VisitTransactionDeclaration(declaration *ast.TransactionDeclaration) ast.Repr {
 	panic("implement me")
+}
+
+func BenchmarkIntAdd(b *testing.B) {
+	var x interpreter.NumberValue = interpreter.Int64Value(1)
+	var y interpreter.NumberValue = interpreter.Int64Value(2)
+
+	for i := 0; i < b.N; i++ {
+		for i := 0; i < LOOP_COUNT; i++ {
+			_ = y.Plus(x)
+			_ = y.Plus(x)
+			_ = y.Equal(nil, nil, x)
+		}
+	}
+}
+
+func BenchmarkContext(b *testing.B) {
+
+	b.Run("push", func(b *testing.B) {
+		vm := virtual_machine.NewVirtualMachine()
+		ctx := vm.NewContext()
+		ctx.Init()
+
+		sf := ctx.CurrentStackFrame()
+		sf.Push(interpreter.Int64Value(1))
+
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			for i := 0; i < LOOP_COUNT; i++ {
+				sf.Push(interpreter.Int64Value(1))
+				sf.Push(interpreter.Int64Value(1))
+				sf.Push(interpreter.Int64Value(1))
+			}
+		}
+
+	})
+
+	b.Run("pop", func(b *testing.B) {
+		vm := virtual_machine.NewVirtualMachine()
+		ctx := vm.NewContext()
+		ctx.Init()
+
+		sf := ctx.CurrentStackFrame()
+		sf.Push(interpreter.Int64Value(1))
+
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			for i := 0; i < LOOP_COUNT; i++ {
+				sf.Push(interpreter.Int64Value(1))
+				sf.Push(interpreter.Int64Value(1))
+				sf.Pop()
+				sf.Pop()
+			}
+		}
+
+	})
+}
+
+func BenchmarkInstruction(b *testing.B) {
+	ins := make([]virtual_machine.Instruction, 0, LOOP_COUNT)
+
+	for i := 0; i < LOOP_COUNT; i++ {
+		ins = append(ins, instructions.NewFunction("foo"))
+	}
+
+	ins = append(ins, instructions.Stop{})
+
+	vm := virtual_machine.NewVirtualMachine()
+
+	for i := 0; i < b.N; i++ {
+		vm.Execute(ins)
+	}
 }

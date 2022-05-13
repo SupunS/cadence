@@ -19,7 +19,7 @@
 package virtual_machine
 
 type Instruction interface {
-	Execute(vm *VirtualMachine)
+	Execute(ctx *ExecutionContext)
 	String() string
 }
 

@@ -16,33 +16,28 @@
  * limitations under the License.
  */
 
-package instructions
+package virtual_machine
 
-import (
-	"fmt"
-	vm "github.com/onflow/cadence/virtual-machine"
-)
-
-// Store instruction reads a values from the top of the stack and
-// stores it in a local variable at a given index.
-type Store struct {
-	Index int
+type ExecutionContext struct {
+	CallStack *CallStack
+	NextIndex int
+	currentStackFrame *StackFrame
 }
 
-var _ vm.Instruction = &Store{}
-
-func NewStore(index int) *Store {
-	return &Store{
-		Index: index,
-	}
+func NewExecutionContext() *ExecutionContext {
+	return &ExecutionContext {}
 }
 
-func (i *Store) Execute(ctx *vm.ExecutionContext) {
-	frame := ctx.CurrentStackFrame()
-	value := frame.Pop()
-	frame.Set(i.Index, value)
+func (ctx *ExecutionContext) CurrentStackFrame() *StackFrame {
+	return ctx.currentStackFrame
 }
 
-func (i *Store) String() string {
-	return fmt.Sprintf("STORE %d", i.Index)
+func (ctx *ExecutionContext) Init() {
+	ctx.CallStack = NewCallStack()
+	ctx.currentStackFrame = ctx.CallStack.Top()
+}
+
+func (ctx *ExecutionContext) Clear() {
+	ctx.NextIndex = 0
+	ctx.CallStack.Clear()
 }

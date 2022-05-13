@@ -30,10 +30,11 @@ var _ vm.Instruction = IntegerAdd{}
 
 var IAddIns = IntegerAdd{}
 
-func (i IntegerAdd) Execute(vm *vm.VirtualMachine) {
-	rhsOp := vm.CurrentStackFrame().Pop().(interpreter.IntegerValue)
-	lhsOp := vm.CurrentStackFrame().Pop().(interpreter.IntegerValue)
-	vm.CurrentStackFrame().Push(lhsOp.Plus(rhsOp))
+func (i IntegerAdd) Execute(ctx *vm.ExecutionContext) {
+	frame := ctx.CurrentStackFrame()
+	rhsOp := frame.Pop().(interpreter.IntegerValue)
+	lhsOp := frame.Pop().(interpreter.IntegerValue)
+	frame.Push(lhsOp.Plus(rhsOp))
 }
 
 func (i IntegerAdd) String() string {

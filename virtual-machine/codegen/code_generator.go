@@ -66,7 +66,7 @@ func NewCodeGenerator() *CodeGenerator {
 
 func (c *CodeGenerator) Generate(program *ast.Program) []vm.Instruction {
 	program.Accept(c)
-	c.emit(instructions.Print{})
+	//c.emit(instructions.Print{})
 	c.emit(instructions.StopIns)
 	return c.Instructions
 }
@@ -154,7 +154,7 @@ func (c *CodeGenerator) VisitVariableDeclaration(variableDeclaration *ast.Variab
 	variableDeclaration.Value.Accept(c)
 
 	// store into local variable
-	c.emit(instructions.NewIStore(varIndex))
+	c.emit(instructions.NewStore(varIndex))
 
 	varName := variableDeclaration.Identifier.Identifier
 	c.scope.Add(varName, varIndex)
@@ -176,7 +176,7 @@ func (c *CodeGenerator) VisitAssignmentStatement(assignmentStatement *ast.Assign
 		panic("Unsupported")
 	}
 
-	c.emit(instructions.NewIStore(varIndex))
+	c.emit(instructions.NewStore(varIndex))
 	return nil
 }
 
@@ -197,7 +197,7 @@ func (c *CodeGenerator) VisitNilExpression(nilExpression *ast.NilExpression) ast
 }
 
 func (c *CodeGenerator) VisitIntegerExpression(integerExpression *ast.IntegerExpression) ast.Repr {
-	c.emit(instructions.NewIConst(integerExpression.Value))
+	c.emit(instructions.NewI64Const(integerExpression.Value.Int64()))
 	return nil
 }
 

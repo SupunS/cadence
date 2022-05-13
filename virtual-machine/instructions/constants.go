@@ -39,11 +39,33 @@ func NewIConst(value *big.Int) IConst {
 	}
 }
 
-func (i IConst) Execute(vm *vm.VirtualMachine) {
+func (i IConst) Execute(ctx *vm.ExecutionContext) {
 	value := interpreter.NewIntValue(i.Value, sema.IntType)
-	vm.CurrentStackFrame().Push(value)
+	ctx.CurrentStackFrame().Push(value)
 }
 
 func (i IConst) String() string {
 	return fmt.Sprintf("ICONST %s", i.Value.String())
+}
+
+// I64Const instruction
+type I64Const struct {
+	Value int64
+}
+
+var _ vm.Instruction = I64Const{}
+
+func NewI64Const(value int64) I64Const {
+	return I64Const{
+		Value: value,
+	}
+}
+
+func (i I64Const) Execute(ctx *vm.ExecutionContext) {
+	value := interpreter.Int64Value(i.Value)
+	ctx.CurrentStackFrame().Push(value)
+}
+
+func (i I64Const) String() string {
+	return fmt.Sprintf("I64CONST %d", i.Value)
 }

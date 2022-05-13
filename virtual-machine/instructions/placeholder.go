@@ -37,7 +37,7 @@ func NewFunction(name string) Function {
 
 var _ vm.Instruction = Function{}
 
-func (i Function) Execute(*vm.VirtualMachine) {
+func (i Function) Execute(*vm.ExecutionContext) {
 	//no-op
 }
 

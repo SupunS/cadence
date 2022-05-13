@@ -31,12 +31,14 @@ var _ vm.Instruction = Equal{}
 
 var EqualIns = NotEqual{}
 
-func (i Equal) Execute(vm *vm.VirtualMachine) {
-	rhsOp := vm.CurrentStackFrame().Pop().(interpreter.EquatableValue)
-	lhsOp := vm.CurrentStackFrame().Pop().(interpreter.EquatableValue)
+func (i Equal) Execute(ctx *vm.ExecutionContext) {
+	frame := ctx.CurrentStackFrame()
+
+	rhsOp := frame.Pop().(interpreter.EquatableValue)
+	lhsOp := frame.Pop().(interpreter.EquatableValue)
 
 	isEqual := lhsOp.Equal(nil, nil, rhsOp)
-	vm.CurrentStackFrame().Push(interpreter.BoolValue(isEqual))
+	frame.Push(interpreter.BoolValue(isEqual))
 }
 
 func (i Equal) String() string {
@@ -50,12 +52,14 @@ var _ vm.Instruction = NotEqual{}
 
 var NotEqualIns = NotEqual{}
 
-func (i NotEqual) Execute(vm *vm.VirtualMachine) {
-	rhsOp := vm.CurrentStackFrame().Pop().(interpreter.EquatableValue)
-	lhsOp := vm.CurrentStackFrame().Pop().(interpreter.EquatableValue)
+func (i NotEqual) Execute(ctx *vm.ExecutionContext) {
+	frame := ctx.CurrentStackFrame()
+
+	rhsOp := frame.Pop().(interpreter.EquatableValue)
+	lhsOp := frame.Pop().(interpreter.EquatableValue)
 
 	isEqual := lhsOp.Equal(nil, nil, rhsOp)
-	vm.CurrentStackFrame().Push(interpreter.BoolValue(!isEqual))
+	frame.Push(interpreter.BoolValue(!isEqual))
 }
 
 func (i NotEqual) String() string {

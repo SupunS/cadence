@@ -30,8 +30,8 @@ type Print struct{}
 
 var _ vm.Instruction = Print{}
 
-func (i Print) Execute(m *vm.VirtualMachine) {
-	fmt.Println(m.CurrentStackFrame().Pop())
+func (i Print) Execute(ctx *vm.ExecutionContext) {
+	fmt.Println(ctx.CurrentStackFrame().Pop())
 }
 
 func (i Print) String() string {
@@ -45,8 +45,8 @@ var _ vm.Instruction = Stop{}
 
 var StopIns = Stop{}
 
-func (i Stop) Execute(m *vm.VirtualMachine) {
-	m.NextIndex = vm.NO_OP
+func (i Stop) Execute(ctx *vm.ExecutionContext) {
+	ctx.NextIndex = vm.NO_OP
 }
 
 func (i Stop) String() string {

@@ -35,7 +35,7 @@ func NewFunctionCall(index int) FunctionCall {
 
 var _ vm.Instruction = FunctionCall{}
 
-func (i FunctionCall) Execute(vm *vm.VirtualMachine) {
+func (i FunctionCall) Execute(ctx *vm.ExecutionContext) {
 }
 
 func (i FunctionCall) String() string {

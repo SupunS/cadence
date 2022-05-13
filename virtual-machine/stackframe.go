@@ -18,42 +18,80 @@
 
 package virtual_machine
 
+import "sync"
+
 type StackFrame struct {
-	values []Value
+	values   []Value
+	size     int
+	capacity int
+}
+
+const initialCapacity = 100
+const growFactor = 1.5
+
+var stackFramePool = sync.Pool{
+	New: func() interface{} {
+		return &StackFrame{
+			values:   make([]Value, initialCapacity),
+			capacity: initialCapacity,
+		}
+	},
 }
 
 func NewStackFrame() *StackFrame {
-	return &StackFrame{
-		values: make([]Value, 0, 10),
-	}
+	return stackFramePool.Get().(*StackFrame)
 }
 
 func (s *StackFrame) Push(v Value) {
-	s.values = append(s.values, v)
+	s.grow()
+	s.values[s.size] = v
+	s.size++
 }
 
 func (s *StackFrame) Pop() Value {
 	// FIXME: handle empty Stack
-	l := len(s.values)
-	top := s.values[l-1]
-	s.values = s.values[:l-1]
+	last := s.size - 1
+	top := s.values[last]
+
+	//s.values = s.values[:last]
+
+	s.size--
+
 	return top
 }
 
 func (s *StackFrame) Set(index int, v Value) {
-	if index > len(s.values) {
+	if index > s.size {
 		panic("invalid index")
 	}
 
-	// If it's the first time var is stored, allocate a new memory location
-	if index == len(s.values) {
-		s.values = append(s.values, v)
+	if index < s.size {
+		s.values[index] = v
 		return
 	}
 
-	s.values[index] = v
+	// If it's the first time var is stored, allocate a new memory location
+	s.Push(v)
 }
 
 func (s *StackFrame) Get(index int) Value {
 	return s.values[index]
+}
+
+func (s *StackFrame) Release() {
+	s.values = s.values[:0]
+	stackFramePool.Put(s)
+}
+
+func (s *StackFrame) grow() {
+	if s.size != s.capacity {
+		return
+	}
+
+	values := s.values
+
+	s.capacity = int(float64(s.capacity) * growFactor)
+
+	s.values = make([]Value, s.capacity)
+	copy(s.values, values)
 }

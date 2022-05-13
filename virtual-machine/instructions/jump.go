@@ -39,8 +39,8 @@ func NewJump(index int) Jump {
 	}
 }
 
-func (i Jump) Execute(vm *vm.VirtualMachine) {
-	vm.NextIndex = i.Instruction
+func (i Jump) Execute(ctx *vm.ExecutionContext) {
+	ctx.NextIndex = i.Instruction
 }
 
 func (i Jump) String() string {
@@ -60,10 +60,10 @@ func NewJumpIf(index int) JumpIf {
 	}
 }
 
-func (i JumpIf) Execute(vm *vm.VirtualMachine) {
-	condition := vm.CurrentStackFrame().Pop().(interpreter.BoolValue)
+func (i JumpIf) Execute(ctx *vm.ExecutionContext) {
+	condition := ctx.CurrentStackFrame().Pop().(interpreter.BoolValue)
 	if condition {
-		vm.NextIndex = i.Instruction
+		ctx.NextIndex = i.Instruction
 	}
 }
 

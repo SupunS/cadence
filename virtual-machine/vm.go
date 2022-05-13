@@ -18,28 +18,56 @@
 
 package virtual_machine
 
-type Value interface{}
+import (
+	"sync"
+
+	"github.com/onflow/cadence/runtime/interpreter"
+)
+
+type Value interpreter.Value
 
 type VirtualMachine struct {
-	CallStack *CallStack
-	NextIndex int
+	threadPool sync.Pool
 }
 
 func NewVirtualMachine() *VirtualMachine {
-	return &VirtualMachine{}
-}
-
-func (vm *VirtualMachine) Execute(instructions []Instruction) {
-	vm.CallStack = NewCallStack()
-
-	for vm.NextIndex != NO_OP {
-		instruction := instructions[vm.NextIndex]
-		vm.NextIndex++
-
-		instruction.Execute(vm)
+	return &VirtualMachine{
+		threadPool: sync.Pool{
+			New: func() interface{} {
+				return NewExecutionContext()
+			},
+		},
 	}
 }
 
-func (vm *VirtualMachine) CurrentStackFrame() *StackFrame {
-	return vm.CallStack.Top()
+func (vm *VirtualMachine) Execute(ins []Instruction) {
+	ctx := vm.NewContext()
+
+	for ctx.NextIndex != 1000 {
+		instruction := ins[ctx.NextIndex]
+		ctx.NextIndex++
+
+		switch instruction.(type) {
+		default:
+			instruction.Execute(nil)
+
+		}
+	}
+
+	vm.ReleaseContext(ctx)
+}
+
+func (vm *VirtualMachine) NewContext() *ExecutionContext {
+	ctx := vm.threadPool.Get().(*ExecutionContext)
+	ctx.Init()
+	return ctx
+}
+
+func (vm *VirtualMachine) ReleaseContext(ctx *ExecutionContext) {
+	ctx.Clear()
+	vm.threadPool.Put(ctx)
+}
+
+func staticFunction() {
+
 }
