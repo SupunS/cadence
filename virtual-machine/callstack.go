@@ -18,8 +18,6 @@
 
 package virtual_machine
 
-import "sync"
-
 type CallStack struct {
 	stackFrames []*StackFrame
 
@@ -27,19 +25,10 @@ type CallStack struct {
 	top *StackFrame
 }
 
-var callStackPool = sync.Pool{
-	New: func() interface{} {
-		return &CallStack{
-			stackFrames: make([]*StackFrame, 0, 10),
-		}
-	},
-}
-
 func NewCallStack() *CallStack {
-	callstack := callStackPool.Get().(*CallStack)
-	callstack.PushNew()
-
-	return callstack
+	return &CallStack{
+		stackFrames: make([]*StackFrame, 0, 10),
+	}
 }
 
 func (s *CallStack) PushNew() {
@@ -51,7 +40,7 @@ func (s *CallStack) Push(frame *StackFrame) {
 	s.stackFrames = append(s.stackFrames, frame)
 }
 
-func (s *CallStack) Pop() *StackFrame {
+func (s *CallStack) Pop() {
 	// FIXME: handle empty Stack
 	l := len(s.stackFrames)
 	top := s.stackFrames[l-1]
@@ -60,7 +49,7 @@ func (s *CallStack) Pop() *StackFrame {
 	// update the new top of stack
 	s.top = s.stackFrames[l-2]
 
-	return top
+	top.Release()
 }
 
 func (s *CallStack) Top() *StackFrame {

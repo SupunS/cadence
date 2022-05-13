@@ -26,7 +26,7 @@ type StackFrame struct {
 	capacity int
 }
 
-const initialCapacity = 100
+const initialCapacity = 20
 const growFactor = 1.5
 
 var stackFramePool = sync.Pool{

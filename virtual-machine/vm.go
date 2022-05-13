@@ -27,12 +27,12 @@ import (
 type Value interpreter.Value
 
 type VirtualMachine struct {
-	threadPool sync.Pool
+	contextPool sync.Pool
 }
 
 func NewVirtualMachine() *VirtualMachine {
 	return &VirtualMachine{
-		threadPool: sync.Pool{
+		contextPool: sync.Pool{
 			New: func() interface{} {
 				return NewExecutionContext()
 			},
@@ -43,31 +43,21 @@ func NewVirtualMachine() *VirtualMachine {
 func (vm *VirtualMachine) Execute(ins []Instruction) {
 	ctx := vm.NewContext()
 
-	for ctx.NextIndex != 1000 {
+	for ctx.NextIndex != NO_OP {
 		instruction := ins[ctx.NextIndex]
 		ctx.NextIndex++
-
-		switch instruction.(type) {
-		default:
-			instruction.Execute(nil)
-
-		}
+		instruction.Execute(ctx)
 	}
 
 	vm.ReleaseContext(ctx)
 }
 
 func (vm *VirtualMachine) NewContext() *ExecutionContext {
-	ctx := vm.threadPool.Get().(*ExecutionContext)
-	ctx.Init()
+	ctx := vm.contextPool.Get().(*ExecutionContext)
 	return ctx
 }
 
 func (vm *VirtualMachine) ReleaseContext(ctx *ExecutionContext) {
 	ctx.Clear()
-	vm.threadPool.Put(ctx)
-}
-
-func staticFunction() {
-
+	vm.contextPool.Put(ctx)
 }

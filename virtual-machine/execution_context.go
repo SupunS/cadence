@@ -21,21 +21,21 @@ package virtual_machine
 type ExecutionContext struct {
 	CallStack *CallStack
 	NextIndex int
-	currentStackFrame *StackFrame
 }
 
 func NewExecutionContext() *ExecutionContext {
-	return &ExecutionContext {}
+	return &ExecutionContext{
+		CallStack: NewCallStack(),
+	}
 }
 
 func (ctx *ExecutionContext) CurrentStackFrame() *StackFrame {
-	return ctx.currentStackFrame
+	return ctx.CallStack.Top()
 }
 
-func (ctx *ExecutionContext) Init() {
-	ctx.CallStack = NewCallStack()
-	ctx.currentStackFrame = ctx.CallStack.Top()
-}
+//func (ctx *ExecutionContext) Init() {
+//	ctx.CallStack = NewCallStack()
+//}
 
 func (ctx *ExecutionContext) Clear() {
 	ctx.NextIndex = 0

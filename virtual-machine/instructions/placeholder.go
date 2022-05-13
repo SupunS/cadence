@@ -37,7 +37,10 @@ func NewFunction(name string) Function {
 
 var _ vm.Instruction = Function{}
 
-func (i Function) Execute(*vm.ExecutionContext) {
+func (i Function) Execute(ctx *vm.ExecutionContext) {
+	// Should be called during FCALL
+	ctx.CallStack.PushNew()
+
 	//no-op
 }
 

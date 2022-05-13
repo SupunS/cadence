@@ -21,6 +21,7 @@ package tests
 import (
 	"fmt"
 	"github.com/onflow/cadence/runtime/interpreter"
+	"github.com/onflow/cadence/runtime/sema"
 	"math/big"
 	"testing"
 
@@ -38,6 +39,7 @@ const LOOP_COUNT = 1000
 
 func TestVM(t *testing.T) {
 	ins := []virtual_machine.Instruction{
+		instructions.NewFunction("foo"),
 		instructions.IConst{big.NewInt(0)},
 		instructions.NewStore(0), // result-var index
 
@@ -48,8 +50,8 @@ func TestVM(t *testing.T) {
 		instructions.Load{1},
 		instructions.IConst{big.NewInt(LOOP_COUNT)},
 		instructions.NotEqual{},
-		instructions.JumpIf{9}, // if true, jump to loop body
-		instructions.Jump{18},  // jump to end-of-loop
+		instructions.JumpIf{10}, // if true, jump to loop body
+		instructions.Jump{19},   // jump to end-of-loop
 
 		// loop body
 
@@ -65,7 +67,7 @@ func TestVM(t *testing.T) {
 		instructions.IntegerAdd{},          // add 1 to result-var
 		instructions.NewStore(0),           // store result-var
 
-		instructions.Jump{4}, // go to start of loop (condition)
+		instructions.Jump{5}, // go to start of loop (condition)
 
 		// end of loop
 
@@ -76,12 +78,15 @@ func TestVM(t *testing.T) {
 		instructions.Stop{},
 	}
 
-	vm := virtual_machine.NewVirtualMachine()
-	vm.Execute(ins)
-
+	fmt.Println("Instructions:")
 	for _, instruction := range ins {
 		fmt.Println(instruction.String())
 	}
+
+	fmt.Println("\nExecuting:")
+	vm := virtual_machine.NewVirtualMachine()
+	vm.Execute(ins)
+
 }
 
 func TestCodeGen(t *testing.T) {
@@ -100,42 +105,45 @@ func TestCodeGen(t *testing.T) {
 	codeGen := codegen.NewCodeGenerator()
 	instructions := codeGen.Generate(program)
 
+	fmt.Println("Instructions:")
 	for _, instruction := range instructions {
 		fmt.Println(instruction.String())
 	}
 
+	fmt.Println("\nExecuting:")
 	vm := virtual_machine.NewVirtualMachine()
 	vm.Execute(instructions)
 }
 
 func BenchmarkInstructions(b *testing.B) {
 	instructions := []virtual_machine.Instruction{
-		instructions.IConst{big.NewInt(0)},
+		instructions.NewFunction("foo"),
+		instructions.I64Const{0},
 		instructions.NewStore(0), // result-var index
 
-		instructions.IConst{big.NewInt(0)},
+		instructions.I64Const{0},
 		instructions.NewStore(1), // loop-var index
 
 		// start of loop
 		instructions.Load{0},
-		instructions.IConst{big.NewInt(LOOP_COUNT)},
+		instructions.I64Const{1000},
 		instructions.NotEqual{},
-		instructions.JumpIf{9}, // if true, jump to loop body
-		instructions.Jump{18},  // jump to end-of-loop
+		instructions.JumpIf{10}, // if true, jump to loop body
+		instructions.Jump{19},   // jump to end-of-loop
 
 		// loop body
 
 		// update loop variable
-		instructions.IConst{big.NewInt(1)}, // load 1
-		instructions.Load{0},               // load loop-var
-		instructions.IntegerAdd{},          // add 1 to loop-var
-		instructions.NewStore(0),           // store loop-var
+		instructions.I64Const{1},  // load 1
+		instructions.Load{0},      // load loop-var
+		instructions.IntegerAdd{}, // add 1 to loop-var
+		instructions.NewStore(0),  // store loop-var
 
 		// update result variable
-		instructions.IConst{big.NewInt(2)}, // load 2
-		instructions.Load{1},               // load result-var
-		instructions.IntegerAdd{},          // add 1 to result-var
-		instructions.NewStore(1),           // store result-var
+		instructions.I64Const{2},  // load 2
+		instructions.Load{1},      // load result-var
+		instructions.IntegerAdd{}, // add 1 to result-var
+		instructions.NewStore(1),  // store result-var
 
 		instructions.Jump{4}, // go to start of loop (condition)
 
@@ -168,13 +176,9 @@ func BenchmarkCodeGen(b *testing.B) {
 
 	b.ResetTimer()
 
-	vm := virtual_machine.NewVirtualMachine()
-
 	for i := 0; i < b.N; i++ {
 		codeGen := codegen.NewCodeGenerator()
-		instructions := codeGen.Generate(program)
-
-		vm.Execute(instructions)
+		codeGen.Generate(program)
 	}
 }
 
@@ -202,47 +206,26 @@ func BenchmarkVM(b *testing.B) {
 	}
 }
 
-func BenchmarkVMInstructions(b *testing.B) {
-	instructions := []virtual_machine.Instruction{
-		instructions.I64Const{0},
-		instructions.NewStore(0), // result-var index
-
-		instructions.I64Const{0},
-		instructions.NewStore(1), // loop-var index
-
-		// start of loop
-		instructions.Load{0},
-		instructions.I64Const{1000},
-		instructions.NotEqual{},
-		instructions.JumpIf{9}, // if true, jump to loop body
-		instructions.Jump{18},  // jump to end-of-loop
-
-		// loop body
-
-		// update loop variable
-		instructions.I64Const{1},  // load 1
-		instructions.Load{0},      // load loop-var
-		instructions.IntegerAdd{}, // add 1 to loop-var
-		instructions.NewStore(0),  // store loop-var
-
-		// update result variable
-		instructions.I64Const{2},  // load 2
-		instructions.Load{1},      // load result-var
-		instructions.IntegerAdd{}, // add 1 to result-var
-		instructions.NewStore(1),  // store result-var
-
-		instructions.Jump{4}, // go to start of loop (condition)
-
-		// end of loop
-
-		instructions.Stop{},
-	}
-
-	vm := virtual_machine.NewVirtualMachine()
+func BenchmarkCodeGenAndVM(b *testing.B) {
+	program, err := parser2.ParseProgram(`
+        fun test() {
+			var i = 0
+			var result = 0
+			while i != 1000 {
+				i = i + 1
+				result = result + 5
+			}
+	    }
+	`)
+	assert.NoError(b, err)
 
 	b.ResetTimer()
 
+	vm := virtual_machine.NewVirtualMachine()
+
 	for i := 0; i < b.N; i++ {
+		codeGen := codegen.NewCodeGenerator()
+		instructions := codeGen.Generate(program)
 		vm.Execute(instructions)
 	}
 }
@@ -252,7 +235,7 @@ func BenchmarkASTVisitor(b *testing.B) {
         fun test() {
 			var i = 0
 			var result = 0
-			while i < 1000 {
+			while i != 1000 {
 				i = i + 1
 				result = result + 5
 			}
@@ -337,7 +320,7 @@ func (t TestASTVisitor) VisitNilExpression(expression *ast.NilExpression) ast.Re
 }
 
 func (t TestASTVisitor) VisitIntegerExpression(expression *ast.IntegerExpression) ast.Repr {
-	return true
+	return interpreter.NewIntValue(expression.Value, sema.Int64Type)
 }
 
 func (t TestASTVisitor) VisitFixedPointExpression(expression *ast.FixedPointExpression) ast.Repr {
@@ -352,8 +335,10 @@ func (t TestASTVisitor) VisitDictionaryExpression(expression *ast.DictionaryExpr
 	panic("implement me")
 }
 
+var tmp = interpreter.NewIntValueFromInt64(2)
+
 func (t TestASTVisitor) VisitIdentifierExpression(expression *ast.IdentifierExpression) ast.Repr {
-	return true
+	return tmp
 }
 
 func (t TestASTVisitor) VisitInvocationExpression(expression *ast.InvocationExpression) ast.Repr {
@@ -377,8 +362,18 @@ func (t TestASTVisitor) VisitUnaryExpression(expression *ast.UnaryExpression) as
 }
 
 func (t TestASTVisitor) VisitBinaryExpression(expression *ast.BinaryExpression) ast.Repr {
-	expression.Left.Accept(t)
-	expression.Right.Accept(t)
+	lhs := expression.Left.Accept(t).(interpreter.IntegerValue)
+	rhs := expression.Right.Accept(t).(interpreter.IntegerValue)
+
+	switch expression.Operation {
+	case ast.OperationPlus:
+		lhs.Plus(rhs)
+	case ast.OperationNotEqual:
+		lhs.Equal(nil, nil, rhs)
+	default:
+		panic("Unsupported")
+	}
+
 	return true
 }
 
@@ -480,7 +475,7 @@ func BenchmarkContext(b *testing.B) {
 	b.Run("push", func(b *testing.B) {
 		vm := virtual_machine.NewVirtualMachine()
 		ctx := vm.NewContext()
-		ctx.Init()
+		ctx.CallStack.PushNew()
 
 		sf := ctx.CurrentStackFrame()
 		sf.Push(interpreter.Int64Value(1))
@@ -501,7 +496,7 @@ func BenchmarkContext(b *testing.B) {
 	b.Run("pop", func(b *testing.B) {
 		vm := virtual_machine.NewVirtualMachine()
 		ctx := vm.NewContext()
-		ctx.Init()
+		ctx.CallStack.PushNew()
 
 		sf := ctx.CurrentStackFrame()
 		sf.Push(interpreter.Int64Value(1))
