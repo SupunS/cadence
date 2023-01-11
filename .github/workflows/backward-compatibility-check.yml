@@ -59,9 +59,9 @@ jobs:
       - name: Check contracts using base branch
         run: |
           cd ./tools/check-contracts
-          go run ./cmd/main.go ../../outputs/mainnet-contracts.csv mainnet-output-old.txt
+          go run ./cmd/main.go ../../outputs/mainnet-contracts.csv ../../outputs/mainnet-output-old.txt
           cd ../..
 
       - name: Print results
         run: |
-          cat ./outputs/mainnet-output-new.txt
+          cat ./outputs/mainnet-output-old.txt
