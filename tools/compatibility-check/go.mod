@@ -1,8 +1,9 @@
-module github.com/onflow/cadence/tools/check_contracts
+module github.com/onflow/cadence/tools/compatibility_check
 
 go 1.19
 
 require (
+	github.com/kylelemons/godebug v1.1.0
 	github.com/onflow/cadence v0.31.2
 	github.com/rs/zerolog v1.26.1
 )
@@ -26,3 +27,5 @@ require (
 	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 )
+
+replace github.com/onflow/cadence => ../../../cadence
