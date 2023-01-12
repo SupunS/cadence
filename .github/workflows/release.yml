@@ -52,10 +52,19 @@ jobs:
           git add ./
           git commit -m "v${{ github.event.inputs.version }}"
           git push --set-upstream origin release/v${{ github.event.inputs.version }}
-
-      - name: Tag and Push
+      
+      - name: Open Pull Request
+        uses: peter-evans/create-pull-request@v4
+        with:
+          base: master
+          branch: release/v${{ github.event.inputs.version }}
+          title: 'Merge `release/v${{ github.event.inputs.version }}` to `master`'
+          body: |
+            Merge `release/v${{ github.event.inputs.version }}` branch to `master`
+            
+      - name: Check outputs
         run: |
-#          git tag v${{ github.event.inputs.version }
-#          git push origin v${{ github.event.inputs.version }
+          echo "Pull Request Number - ${{ steps.cpr.outputs.pull-request-number }}"
+          echo "Pull Request URL - ${{ steps.cpr.outputs.pull-request-url }}"
 
 
