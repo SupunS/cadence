@@ -19,7 +19,7 @@ jobs:
   mainnet:
     uses: supuns/cadence/.github/workflows/compatibility-check-template.yml@master
     with:
-      base-branch: ${{ github.event.pull_request.base.sha }}
+      base-branch: ${{ inputs.base }}
       chain: flow-mainnet
       url: access.mainnet.nodes.onflow.org:9000
 
