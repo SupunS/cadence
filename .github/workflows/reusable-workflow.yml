@@ -1,0 +1,11 @@
+name: Reusable workflow example
+
+on:
+  workflow_call:
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Print something
+      run: echo "************ Hello!!"
