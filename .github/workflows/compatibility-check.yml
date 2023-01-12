@@ -17,14 +17,14 @@ concurrency:
 
 jobs:
   mainnet:
-    uses: onflow/cadence/.github/workflows/compatibility-check-template.yml@master
+    uses: supuns/cadence/.github/workflows/compatibility-check-template.yml@master
     with:
       base-branch: ${{ github.event.pull_request.base.sha }}
       chain: flow-mainnet
       url: access.mainnet.nodes.onflow.org:9000
 
   testnet:
-    uses: onflow/cadence/.github/workflows/compatibility-check-template.yml@master
+    uses: supuns/cadence/.github/workflows/compatibility-check-template.yml@master
     with:
       base-branch:  ${{ inputs.base }}
       chain: flow-testnet
