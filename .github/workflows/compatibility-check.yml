@@ -11,10 +11,6 @@ on:
 env:
   GO_VERSION: '1.19.2'
 
-concurrency:
-  group: ${{ github.job }}-${{ github.ref }} 
-  cancel-in-progress: true
-
 jobs:
   mainnet:
     uses: supuns/cadence/.github/workflows/compatibility-check-template.yml@master
