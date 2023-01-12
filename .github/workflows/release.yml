@@ -50,6 +50,7 @@ jobs:
         with:
           branch: release/v${{ github.event.inputs.version }}
           title: 'Merge `release/v${{ github.event.inputs.version }}` to `master`'
+          commit-message: v${{ github.event.inputs.version }}
           body: |
             Merge `release/v${{ github.event.inputs.version }}` branch to `master`
 
@@ -59,5 +60,5 @@ jobs:
 
       - name: Tag and Push
         run: |
-        #          git tag v${{ github.event.inputs.version }
-#          git push origin v${{ github.event.inputs.version }
+          git tag v${{ github.event.inputs.version }
+          git push origin v${{ github.event.inputs.version }
