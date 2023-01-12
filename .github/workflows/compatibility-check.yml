@@ -29,14 +29,14 @@ jobs:
           fetch-depth: 0
   
   mainnet:
-    uses: supuns/cadence/.github/workflows/compatibility-check-template.yml@master
+    uses: ./.github/workflows/compatibility-check-template.yml
     with:
       base-branch: ${{ inputs.base }}
       chain: flow-mainnet
       url: access.mainnet.nodes.onflow.org:9000
 
   testnet:
-    uses: supuns/cadence/.github/workflows/compatibility-check-template.yml@master
+    uses: ./.github/workflows/compatibility-check-template.yml
     with:
       base-branch:  ${{ inputs.base }}
       chain: flow-testnet
