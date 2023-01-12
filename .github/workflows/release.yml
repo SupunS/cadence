@@ -39,7 +39,7 @@ jobs:
       - name: Create release branch
         run: |
           git checkout ${{ github.event.inputs.base }}
-          git checkout -b release/${{ github.event.inputs.version }}
+          git checkout -b release/v${{ github.event.inputs.version }}
 
       - name: Version bump
         run: make release bump=${{ github.event.inputs.version }}
@@ -49,16 +49,16 @@ jobs:
           git config --global user.name "${GITHUB_ACTOR}"
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
           git add ./
-          git commit -m "${{ github.event.inputs.version }}"
+          git commit -m "v${{ github.event.inputs.version }}"
 
       - name: Tag and Push
         run: |
-          git push --set-upstream origin release/${{ github.event.inputs.version }}
+          git push --set-upstream origin release/v${{ github.event.inputs.version }}
 
       - name: Open Pull Request
         uses: peter-evans/create-pull-request@v4
         with:
-          branch: release/${{ github.event.inputs.version }}
-          title: 'Merge `release/${{ github.event.inputs.version }}` to `master`'
+          branch: release/v${{ github.event.inputs.version }}
+          title: 'Merge `release/v${{ github.event.inputs.version }}` to `master`'
           body: |
-            Merge `release/${{ github.event.inputs.version }}` branch to `master`
+            Merge `release/v${{ github.event.inputs.version }}` branch to `master`
