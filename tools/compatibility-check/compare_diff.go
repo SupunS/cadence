@@ -1,3 +1,21 @@
+/*
+ * Cadence - The resource-oriented smart contract programming language
+ *
+ * Copyright 2023 Dapper Labs, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package compatibility_check
 
 import (
@@ -12,19 +30,8 @@ import (
 
 func CompareFiles(oldResults, newResults *os.File) error {
 
-	oldResultsScanner := bufio.NewScanner(oldResults)
-	oldResultsScanner.Split(bufio.ScanLines)
-	var oldResultsLines []string
-	for oldResultsScanner.Scan() {
-		oldResultsLines = append(oldResultsLines, oldResultsScanner.Text())
-	}
-
-	newResultsScanner := bufio.NewScanner(newResults)
-	newResultsScanner.Split(bufio.ScanLines)
-	var newResultsLines []string
-	for newResultsScanner.Scan() {
-		newResultsLines = append(newResultsLines, newResultsScanner.Text())
-	}
+	oldResultsLines := getContentLines(oldResults)
+	newResultsLines := getContentLines(newResults)
 
 	totalDiffs := 0
 
@@ -40,6 +47,7 @@ func CompareFiles(oldResults, newResults *os.File) error {
 batchLoop:
 	for batchStart := 0; batchStart < len(oldResultsLines); batchStart += batchSize {
 		batchEnd := batchStart + batchSize
+
 		oldResultsBatchEnd := len(oldResultsLines)
 		if oldResultsBatchEnd > batchEnd {
 			oldResultsBatchEnd = batchEnd
@@ -81,12 +89,24 @@ batchLoop:
 	return nil
 }
 
+func getContentLines(file *os.File) []string {
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines)
+
+	var lines []string
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+
+	return lines
+}
+
 func printDiffChunk(prevChunk, currentChunk diff.Chunk) {
 	sb := strings.Builder{}
 
 	var extraLinesToPrint = 4
 
-	// Print the last few line from the previous chunk.
+	// Print the last few lines from the previous chunk.
 	equalLines := prevChunk.Equal
 	equalLinesLen := len(equalLines)
 	if equalLinesLen <= extraLinesToPrint {
