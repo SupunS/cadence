@@ -14,8 +14,43 @@ on:
         type: string
 
 jobs:
-  triage:
+  check:
     runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
     steps:
-    - name: Print something
-      run: echo "************ Hello!!"
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Make output dirs
+        run: |
+          mkdir outputs
+
+      - name: Download contracts
+        working-directory: ./tools/batch-script
+        run: |
+          go run ./cmd/get_contracts/main.go --chain=${{ inputs.chain }} --u=${{ inputs.url }} > ../../tmp/contracts.csv
+
+      - name: Check contracts using current branch
+        working-directory: ./tools/compatibility-check
+        run: |
+          go run ./cmd/check_contracts/main.go ../../tmp/contracts.csv ../../tmp/output-new.txt
+
+      - name: Checkout base branch
+        run: git checkout ${{ inputs.base-branch }}
+
+      - name: Check contracts using base branch
+        working-directory: ./tools/compatibility-check
+        run: |
+          go run ./cmd/check_contracts/main.go ../../tmp/contracts.csv ../../tmp/output-old.txt
+
+      - name: Check diff
+        run: |
+          go run ./cmd/get_diff/main.go ../../tmp/output-old.txt ../../tmp/output-new.txt
+
