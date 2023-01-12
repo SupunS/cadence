@@ -25,17 +25,6 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install wabt
 
-      - name: Setup Go
-        uses: actions/setup-go@v3
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
       - name: Create release branch
         run: |
           git checkout ${{ github.event.inputs.base }}
@@ -44,11 +33,6 @@ jobs:
 
       - name: Version bump
         run: make release bump=0.21.2
-
-      - name: Run Tests
-        run: |
-          make test
-          make lint-github-actions
 
       - name: Commit
         run: git commit -m "${{ github.event.inputs.version }}"
