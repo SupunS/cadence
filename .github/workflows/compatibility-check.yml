@@ -12,20 +12,20 @@ env:
   GO_VERSION: '1.19.2'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  group: ${{ github.workflow }}-${{ inputs.base || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   mainnet:
-    uses: supuns/cadence/.github/workflows/compatibility-check-template.yml@master
+    uses: onflow/cadence/.github/workflows/compatibility-check-template.yml@master
     with:
       base-branch: ${{ inputs.base }}
       chain: flow-mainnet
       url: access.mainnet.nodes.onflow.org:9000
 
-#   testnet:
-#     uses: supuns/cadence/.github/workflows/compatibility-check-template.yml@master
-#     with:
-#       base-branch:  ${{ inputs.base }}
-#       chain: flow-testnet
-#       url: access.testnet.nodes.onflow.org:9000
+  testnet:
+    uses: onflow/cadence/.github/workflows/compatibility-check-template.yml@master
+    with:
+      base-branch:  ${{ inputs.base }}
+      chain: flow-testnet
+      url: access.testnet.nodes.onflow.org:9000
