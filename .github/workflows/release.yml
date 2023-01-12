@@ -58,6 +58,7 @@ jobs:
       - name: Open Pull Request
         uses: peter-evans/create-pull-request@v4
         with:
+          base: master
           branch: release/v${{ github.event.inputs.version }}
           title: 'Merge `release/v${{ github.event.inputs.version }}` to `master`'
           body: |
