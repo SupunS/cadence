@@ -1,4 +1,4 @@
-name: CI
+name: Release
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
         description: 'Release version'
         required: true
       base:
-        description: 'Base branch create the release'
+        description: 'Base branch for the release'
         required: false
         default: 'master'
 
@@ -19,10 +19,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: Test
+  release:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
       - name: Create release branch
         run: |
           git checkout ${{ github.event.inputs.base }}
