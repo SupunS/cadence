@@ -16,6 +16,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  release:
+    name: "${{ github.event.inputs.version }}"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install wabt
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+  
   mainnet:
     uses: supuns/cadence/.github/workflows/compatibility-check-template.yml@master
     with:
