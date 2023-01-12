@@ -37,34 +37,27 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Create release branch
-        run: |
-          git checkout ${{ github.event.inputs.base }}
-          git checkout -b release/v${{ github.event.inputs.version }}
-
       - name: Version bump
         run: make release bump=${{ github.event.inputs.version }}
 
-      - name: Commit
+      - name: Config git
         run: |
           git config --global user.name "${GITHUB_ACTOR}"
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-          git add ./
-          git commit -m "v${{ github.event.inputs.version }}"
-          git push --set-upstream origin release/v${{ github.event.inputs.version }}
-      
+
       - name: Open Pull Request
         uses: peter-evans/create-pull-request@v4
         with:
-          base: master
           branch: release/v${{ github.event.inputs.version }}
           title: 'Merge `release/v${{ github.event.inputs.version }}` to `master`'
           body: |
             Merge `release/v${{ github.event.inputs.version }}` branch to `master`
-            
-      - name: Check outputs
+
+      - name: Checkout release branch
         run: |
-          echo "Pull Request Number - ${{ steps.cpr.outputs.pull-request-number }}"
-          echo "Pull Request URL - ${{ steps.cpr.outputs.pull-request-url }}"
+          git checkout release/v${{ github.event.inputs.version }}
 
-
+      - name: Tag and Push
+        run: |
+        #          git tag v${{ github.event.inputs.version }
+#          git push origin v${{ github.event.inputs.version }
