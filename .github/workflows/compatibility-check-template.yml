@@ -36,7 +36,7 @@ jobs:
 
       - name: Make output dirs
         run: |
-          mkdir outputs
+          mkdir tmp
 
       - name: Download contracts
         working-directory: ./tools/batch-script
