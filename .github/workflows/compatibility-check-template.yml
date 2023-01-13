@@ -37,19 +37,47 @@ jobs:
       - name: Make output dirs
         run: |
           mkdir tmp
+          
+      - name: Generate chache key
+        id: cache-key-generator
+        run: echo "cache-key=(date +'%Y-%m-%d-%H')" >> $GITHUB_OUTPUT
 
-      - name: Download contracts
+      - name: Cache Contracts
+        id: cache-contracts
+        uses: actions/cache@v3
+        with:
+          path: ../../tmp/contracts.csv
+          key: ${{ steps.cache-key-generator.outputs.cache-key }}-contracts
+
+      - if: ${{ steps.cache-contracts.outputs.cache-hit != 'true' }}
+        name: Download contracts
         working-directory: ./tools/batch-script
         run: |
           go run ./cmd/get_contracts/main.go --chain=${{ inputs.chain }} --u=${{ inputs.url }} > ../../tmp/contracts.csv
 
-      - name: Check contracts using current branch
+      - name: Cache new checking results
+        id: cache-new-results
+        uses: actions/cache@v3
+        with:
+          path: ../../tmp/output-new.txt
+          key: ${{ steps.cache-key-generator.outputs.cache-key }}-new-results
+
+      - if: ${{ steps.cache-new-results.outputs.cache-hit != 'true' }}
+        name: Check contracts using current branch
         working-directory: ./tools/compatibility-check
         run: |
           go run ./cmd/check_contracts/main.go ../../tmp/contracts.csv ../../tmp/output-new.txt
 
       - name: Checkout base branch
         run: git checkout ${{ inputs.base-branch }}
+
+      - if: ${{ steps.cache-old-results.outputs.cache-hit != 'true' }}
+        name: Cache old checking results
+        id: cache-old-results
+        uses: actions/cache@v3
+        with:
+          path: ../../tmp/output-old.txt
+          key: ${{ steps.cache-key-generator.outputs.cache-key }}-old-results
 
       - name: Check contracts using base branch
         working-directory: ./tools/compatibility-check
