@@ -44,7 +44,8 @@ jobs:
           
       - name: Generate chache key
         id: cache-key-generator
-        run: echo "cache-key=${{ github.workflow }}-${{ inputs.chain }}-${{ inputs.base-branch }}-${{ inputs.current-branch }}-$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+        # cache key should include chain name
+        run: echo "cache-key=${{ github.workflow }}-${{ inputs.chain }}-$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
       # Get contracts
       
@@ -76,7 +77,8 @@ jobs:
         uses: actions/cache/restore@v3
         with:
           path: tmp/output-new.txt
-          key: ${{ steps.cache-key-generator.outputs.cache-key }}-new-results
+          # cache key should include current branch name
+          key: ${{ steps.cache-key-generator.outputs.cache-key }}-${{ inputs.current-branch }}-new-results
 
       - name: Check contracts using current branch
         if: ${{ steps.restore-cached-new-results.outputs.cache-hit != 'true' }}
@@ -90,7 +92,8 @@ jobs:
         uses: actions/cache/save@v3
         with:
           path: tmp/output-new.txt
-          key: ${{ steps.cache-key-generator.outputs.cache-key }}-new-results
+          # cache key should include current branch name
+          key: ${{ steps.cache-key-generator.outputs.cache-key }}-${{ inputs.current-branch }}-new-results
           
       # Check contracts using base branch
        
@@ -102,7 +105,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: tmp/output-old.txt
-          key: ${{ steps.cache-key-generator.outputs.cache-key }}-old-results
+          # cache key should include base branch name
+          key: ${{ steps.cache-key-generator.outputs.cache-key }}-${{ inputs.base-branch }}-old-results
 
       - name: Check contracts using base branch
         if: ${{ steps.restore-cached-old-results.outputs.cache-hit != 'true' }}
@@ -116,7 +120,8 @@ jobs:
         uses: actions/cache/save@v3
         with:
           path: tmp/output-old.txt
-          key: ${{ steps.cache-key-generator.outputs.cache-key }}-old-results
+          # cache key should include base branch name
+          key: ${{ steps.cache-key-generator.outputs.cache-key }}-${{ inputs.base-branch }}-old-results
 
       # Check Diff
       - name: Check diff
