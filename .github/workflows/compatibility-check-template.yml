@@ -78,7 +78,7 @@ jobs:
         with:
           path: tmp/output-new.txt
           # cache key should include current branch name
-          key: ${{ steps.cache-key-generator.outputs.cache-key }}-${{ inputs.current-branch }}-new-results
+          key: ${{ steps.cache-key-generator.outputs.cache-key }}-new-results
 
       - name: Check contracts using current branch
         if: ${{ steps.restore-cached-new-results.outputs.cache-hit != 'true' }}
@@ -93,7 +93,7 @@ jobs:
         with:
           path: tmp/output-new.txt
           # cache key should include current branch name
-          key: ${{ steps.cache-key-generator.outputs.cache-key }}-${{ inputs.current-branch }}-new-results
+          key: ${{ steps.cache-key-generator.outputs.cache-key }}-new-results
           
       # Check contracts using base branch
        
@@ -106,7 +106,7 @@ jobs:
         with:
           path: tmp/output-old.txt
           # cache key should include base branch name
-          key: ${{ steps.cache-key-generator.outputs.cache-key }}-${{ inputs.base-branch }}-old-results
+          key: ${{ steps.cache-key-generator.outputs.cache-key }}-old-results
 
       - name: Check contracts using base branch
         if: ${{ steps.restore-cached-old-results.outputs.cache-hit != 'true' }}
@@ -121,7 +121,7 @@ jobs:
         with:
           path: tmp/output-old.txt
           # cache key should include base branch name
-          key: ${{ steps.cache-key-generator.outputs.cache-key }}-${{ inputs.base-branch }}-old-results
+          key: ${{ steps.cache-key-generator.outputs.cache-key }}-old-results
 
       # Check Diff
       - name: Check diff
