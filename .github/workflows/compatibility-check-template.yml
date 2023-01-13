@@ -51,14 +51,15 @@ jobs:
           path: tmp/contracts.csv
           key: ${{ steps.cache-key-generator.outputs.cache-key }}-contracts
 
-      - if: ${{ steps.restore-cached-contracts.outputs.cache-hit != 'true' }}
-        name: Download contracts
+      - name: Download contracts
+        if: ${{ steps.restore-cached-contracts.outputs.cache-hit != 'true' }}
         working-directory: ./tools/batch-script
         run: |
           go run ./cmd/get_contracts/main.go --chain=${{ inputs.chain }} --u=${{ inputs.url }} > ../../tmp/contracts.csv
           
       - name: Cach Contracts
         id: cach-contracts
+        if: ${{ steps.restore-cached-contracts.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v3
         with:
           path: tmp/contracts.csv
@@ -73,15 +74,15 @@ jobs:
           path: tmp/output-new.txt
           key: ${{ steps.cache-key-generator.outputs.cache-key }}-new-results
 
-      - if: ${{ steps.restore-cached-new-results.outputs.cache-hit != 'true' }}
-        name: Check contracts using current branch
+      - name: Check contracts using current branch
+        if: ${{ steps.restore-cached-new-results.outputs.cache-hit != 'true' }}
         working-directory: ./tools/compatibility-check
         run: |
           go run ./cmd/check_contracts/main.go ../../tmp/contracts.csv ../../tmp/output-new.txt
      
-      - if: ${{ steps.restore-cached-new-results.outputs.cache-hit != 'true' }}
-        name: Cach new checking results
+      - name: Cach new checking results
         id: cach-new-results
+        if: ${{ steps.restore-cached-new-results.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v3
         with:
           path: tmp/output-new.txt
@@ -99,15 +100,15 @@ jobs:
           path: tmp/output-old.txt
           key: ${{ steps.cache-key-generator.outputs.cache-key }}-old-results
 
-      - if: ${{ steps.restore-cached-old-results.outputs.cache-hit != 'true' }}
-        name: Check contracts using base branch
+      - name: Check contracts using base branch
+        if: ${{ steps.restore-cached-old-results.outputs.cache-hit != 'true' }}
         working-directory: ./tools/compatibility-check
         run: |
           go run ./cmd/check_contracts/main.go ../../tmp/contracts.csv ../../tmp/output-old.txt
 
-      - if: ${{ steps.restore-cached-old-results.outputs.cache-hit != 'true' }}
-        name: Cach old checking results
+      - name: Cach old checking results
         id: cach-old-results
+        if: ${{ steps.restore-cached-old-results.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v3
         with:
           path: tmp/output-old.txt
