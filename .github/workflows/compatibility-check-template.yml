@@ -48,7 +48,7 @@ jobs:
         id: restore-cached-contracts
         uses: actions/cache/restore@v3
         with:
-          path: ../../tmp/contracts.csv
+          path: tmp/contracts.csv
           key: ${{ steps.cache-key-generator.outputs.cache-key }}-contracts
 
       - if: ${{ steps.restore-cached-contracts.outputs.cache-hit != 'true' }}
@@ -61,7 +61,7 @@ jobs:
         id: cach-contracts
         uses: actions/cache/save@v3
         with:
-          path: path/to/dependencies
+          path: tmp/contracts.csv
           key: ${{ steps.cache-key-generator.outputs.cache-key }}-contracts
 
       # Check contracts using current branch
@@ -70,7 +70,7 @@ jobs:
         id: restore-cached-new-results
         uses: actions/cache/restore@v3
         with:
-          path: ../../tmp/output-new.txt
+          path: tmp/output-new.txt
           key: ${{ steps.cache-key-generator.outputs.cache-key }}-new-results
 
       - if: ${{ steps.restore-cached-new-results.outputs.cache-hit != 'true' }}
@@ -84,7 +84,7 @@ jobs:
         id: cach-new-results
         uses: actions/cache/save@v3
         with:
-          path: path/to/dependencies
+          path: tmp/output-new.txt
           key: ${{ steps.cache-key-generator.outputs.cache-key }}-new-results
           
       # Check contracts using base branch
@@ -96,7 +96,7 @@ jobs:
         id: restore-cached-old-results
         uses: actions/cache@v3
         with:
-          path: ../../tmp/output-old.txt
+          path: tmp/output-old.txt
           key: ${{ steps.cache-key-generator.outputs.cache-key }}-old-results
 
       - if: ${{ steps.restore-cached-old-results.outputs.cache-hit != 'true' }}
@@ -110,7 +110,7 @@ jobs:
         id: cach-old-results
         uses: actions/cache/save@v3
         with:
-          path: path/to/dependencies
+          path: tmp/output-old.txt
           key: ${{ steps.cache-key-generator.outputs.cache-key }}-old-results
 
       # Check Diff
