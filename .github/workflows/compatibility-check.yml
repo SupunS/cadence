@@ -3,6 +3,9 @@ name: BackwardCompatibilityCheck
 on:
   workflow_dispatch:
     inputs:
+      branch:
+        description: 'Current branch'
+        required: true
       base:
         description: 'Base branch'
         required: false
@@ -20,6 +23,7 @@ jobs:
     uses: ./.github/workflows/compatibility-check-template.yml
     with:
       base-branch: ${{ inputs.base }}
+      current-branch: ${{ inputs.branch }}
       chain: flow-mainnet
       url: access.mainnet.nodes.onflow.org:9000
 
@@ -27,5 +31,6 @@ jobs:
     uses: ./.github/workflows/compatibility-check-template.yml
     with:
       base-branch:  ${{ inputs.base }}
+      current-branch: ${{ inputs.branch }}
       chain: flow-testnet
       url: access.testnet.nodes.onflow.org:9000
