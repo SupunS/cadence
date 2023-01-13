@@ -3,6 +3,9 @@ name: BackwardCompatibilityCheckTemplate
 on:
   workflow_call:
     inputs:
+      current-branch:
+        required: true
+        type: string
       base-branch:
         required: true
         type: string
@@ -28,6 +31,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+          ref: ${{ inputs.current-branch }}
 
       - uses: actions/setup-go@v3
         with:
@@ -40,7 +44,7 @@ jobs:
           
       - name: Generate chache key
         id: cache-key-generator
-        run: echo "cache-key=${{ github.workflow }}-${{ inputs.chain }}-${{ inputs.base-branch }}-$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+        run: echo "cache-key=${{ github.workflow }}-${{ inputs.chain }}-${{ inputs.base-branch }}-${{ inputs.current-branch }}-$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
       # Get contracts
       
