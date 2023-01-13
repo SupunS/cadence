@@ -72,7 +72,7 @@ jobs:
 
       # Check contracts using current branch
       
-      - name: Restor cached new checking results
+      - name: Restore cached new checking results
         id: restore-cached-new-results
         uses: actions/cache/restore@v3
         with:
