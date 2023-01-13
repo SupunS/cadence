@@ -62,8 +62,8 @@ jobs:
         run: |
           go run ./cmd/get_contracts/main.go --chain=${{ inputs.chain }} --u=${{ inputs.url }} > ../../tmp/contracts.csv
 
-      - name: Cach Contracts
-        id: cach-contracts
+      - name: Cache Contracts
+        id: cache-contracts
         if: ${{ steps.restore-cached-contracts.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v3
         with:
