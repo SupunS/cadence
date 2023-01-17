@@ -101,7 +101,7 @@ check-tidy: generate
 release:
 	@(VERSIONED_FILES="version.go \
 	npm-packages/cadence-parser/package.json" \
-	bash ./bump-version.sh $(bump))
+	sh ./bump-version.sh $(bump))
 
 .PHONY: check-capabilities
 check-capabilities:
