@@ -50,7 +50,7 @@ jobs:
       # This is to support both version formats: `0.1.0` and `v0.1.0`.
       - name: Cleanup version
         id: version-gen
-        run: echo "version=v`(echo "${{ github.event.inputs.version }}" | sed -Ee 's/^v|-.*//')`" >> $GITHUB_OUTPUT
+        run: echo "version=v`(echo "${{ github.event.inputs.version }}" | sed -Ee 's/^v//')`" >> $GITHUB_OUTPUT
 
       - name: Bump Version
         run: make release bump=${{ steps.version-gen.outputs.version }}
