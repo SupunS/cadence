@@ -36,11 +36,11 @@ jobs:
         id: setup
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "branch=v`(echo "${{ github.event.pull_request.head.sha }}")`" >> $GITHUB_OUTPUT
-            echo "base=v`(echo "${{ github.base_ref }}")`" >> $GITHUB_OUTPUT
+            echo "branch=`(echo "${{ github.event.pull_request.head.sha }}")`" >> $GITHUB_OUTPUT
+            echo "base=`(echo "${{ github.base_ref }}")`" >> $GITHUB_OUTPUT
           else
-            echo "branch=v`(echo "${{ inputs.branch }}")`" >> $GITHUB_OUTPUT
-            echo "base=v`(echo "${{ inputs.base }}")`" >> $GITHUB_OUTPUT
+            echo "branch=`(echo "${{ inputs.branch }}")`" >> $GITHUB_OUTPUT
+            echo "base=`(echo "${{ inputs.base }}")`" >> $GITHUB_OUTPUT
           fi
 
   mainnet:
