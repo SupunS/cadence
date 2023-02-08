@@ -27,9 +27,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  release:
+
+  # Bump the version, run the tests_lint, and push the changes to a release branch.
+  version-bump:
     name: "${{ github.event.inputs.version }}"
     runs-on: ubuntu-latest
+    outputs:
+      # Set step output to a job output, so that next job can read this value.
+      version: ${{ steps.version-gen.outputs.version }}
     steps:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install wabt
@@ -74,8 +79,22 @@ jobs:
           body: |
             Merge `release/${{ steps.version-gen.outputs.version }}` branch to `${{ inputs.base }}`
 
+  # Create a tag from the release branch created in previous job.
+  # Requires approval.
+  release:
+    needs: version-bump
+    name: "${{ github.event.inputs.version }}"
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: ${{needs.version-bump.outputs.version}}
+
       - name: Tag and Push
         run: |
-          git checkout release/${{ steps.version-gen.outputs.version }}
-          git tag ${{ steps.version-gen.outputs.version }}
-          git push origin ${{ steps.version-gen.outputs.version }}
+          git checkout release/${{needs.version-bump.outputs.version}}
+          git tag ${{needs.version-bump.outputs.version}}
+          git push origin ${{needs.version-bump.outputs.version}}
