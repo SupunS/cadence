@@ -33,9 +33,8 @@ jobs:
     steps:
       - name: Setup
         id: setup
-        if: github.event_name == 'pull_request'
         run: |
-          if [[ "${{ github.${{ github.event.pull_request.head.sha }} }}" == "pull_request" ]]; then
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "branch=v`(echo "${{ github.event.pull_request.head.sha }}")`" >> $GITHUB_OUTPUT
             echo "base=v`(echo "${{ github.base_ref }}")`" >> $GITHUB_OUTPUT
           else
