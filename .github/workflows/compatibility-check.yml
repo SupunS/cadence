@@ -11,6 +11,7 @@ on:
         description: 'Base branch/tag'
         required: true
         default: 'latest'
+
   pull_request:
     branches:
       - master
@@ -43,6 +44,7 @@ jobs:
           fi
 
   mainnet:
+    needs: setup
     uses: ./.github/workflows/compatibility-check-template.yml
     with:
       base-branch: ${{ needs.setup.outputs.base }}
@@ -51,6 +53,7 @@ jobs:
       url: access.mainnet.nodes.onflow.org:9000
 
   testnet:
+    needs: setup
     uses: ./.github/workflows/compatibility-check-template.yml
     with:
       base-branch:  ${{ needs.setup.outputs.base }}
