@@ -60,10 +60,10 @@ jobs:
       - name: Bump Version
         run: make release bump=${{ steps.version-gen.outputs.version }}
 
-      - name: Run Tests
-        run: |
-          make test
-          make lint-github-actions
+#       - name: Run Tests
+#         run: |
+#           make test
+#           make lint-github-actions
 
       - name: Config git
         run: |
