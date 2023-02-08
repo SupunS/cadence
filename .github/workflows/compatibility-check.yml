@@ -11,6 +11,10 @@ on:
         description: 'Base branch/tag'
         required: true
         default: 'latest'
+  push:
+    branches:
+      - master
+      - 'v**'
   pull_request:
     branches:
       - master
