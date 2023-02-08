@@ -39,6 +39,8 @@ jobs:
       - id: setup
       - if: github.event_name == 'pull_request'
       - run: |
+          # If the workflow is running on a pull request, then take the PR's source branch as the current branch,
+          # and the PR's target as the base branch.
           if [[ "${{ github.${{ github.event.pull_request.head.sha }} }}" == "pull_request" ]]; then
             echo "branch=v`(echo "${{ github.event.pull_request.head.sha }}")`" >> $GITHUB_OUTPUT
             echo "base=v`(echo "${{ github.base_ref }}")`" >> $GITHUB_OUTPUT
